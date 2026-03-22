@@ -84,13 +84,14 @@ export interface IStorage {
   getGeneralPassword(): Promise<string | undefined>;
 }
 
-import { SQLiteStorage } from './sqlite-storage';
-import { PostgresStorage } from './postgres-storage';
-
 export let storage: IStorage;
 
-if (process.env.DATABASE_URL) {
-  storage = new PostgresStorage();
-} else {
-  storage = new SQLiteStorage();
+export async function initStorage() {
+  if (process.env.DATABASE_URL) {
+    const { PostgresStorage } = await import('./postgres-storage');
+    storage = new PostgresStorage();
+  } else {
+    const { SQLiteStorage } = await import('./sqlite-storage');
+    storage = new SQLiteStorage();
+  }
 }

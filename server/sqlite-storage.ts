@@ -1,4 +1,3 @@
-import Database from 'better-sqlite3';
 import { randomUUID } from 'crypto';
 import * as fs from 'fs';
 import * as path from 'path';
@@ -24,7 +23,7 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 export class SQLiteStorage implements IStorage {
-  private db: Database.Database;
+  private db: any;
   private activeRequests: number = 0;
   private startTime: number = Date.now();
 
@@ -34,10 +33,22 @@ export class SQLiteStorage implements IStorage {
       : path.join(process.cwd(), 'database.sqlite');
     const databasePath = dbPath || defaultPath;
 
-    // Initialize database
-    this.db = new Database(databasePath);
-    this.db.pragma('foreign_keys = ON');
-    this.initializeDatabase();
+    // We use a manual require/dynamic import here to avoid loading better-sqlite3 
+    // at the top level, which causes issues on Vercel even if not used.
+    // Since this is a CommonJS module, we use require.
+    // For ESM compatibility in some environments, we might need a workaround.
+    try {
+      // @ts-ignore
+      const Database = (await import('better-sqlite3')).default;
+      this.db = new Database(databasePath);
+      this.db.pragma('foreign_keys = ON');
+      this.initializeDatabase();
+    } catch (e) {
+      // If we are on Vercel and trying to use SQLite, it will likely fail here.
+      // But if we are using Postgres, this class will never be instantiated.
+      console.error("Failed to load better-sqlite3:", e);
+      throw e;
+    }
   }
 
   private initializeDatabase(): void {

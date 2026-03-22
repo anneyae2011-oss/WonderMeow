@@ -105,12 +105,9 @@ const userManageRateLimit = rateLimit({
 });
 
 
-import session from "express-session";
-import connectSqlite3 from "connect-sqlite3";
 import memoryStore from "memorystore";
 import bcrypt from "bcrypt";
 
-const SQLiteStore = connectSqlite3(session);
 const MemoryStore = memoryStore(session);
 
 // Middleware for admin authentication
@@ -317,13 +314,20 @@ export async function registerRoutes(app: Express): Promise<Server> {
   }
 
   // Session configuration
+  let sessionStore: any;
+  if (process.env.VERCEL || !process.env.SESSION_SECRET) {
+    sessionStore = new MemoryStore({ checkPeriod: 86400000 });
+  } else {
+    const { default: connectSqlite3 } = await import("connect-sqlite3");
+    const SQLiteStore = connectSqlite3(session);
+    sessionStore = new SQLiteStore({
+      db: 'sessions.sqlite',
+      dir: './'
+    });
+  }
+
   app.use(session({
-    store: (process.env.VERCEL || !process.env.SESSION_SECRET) 
-      ? new MemoryStore({ checkPeriod: 86400000 }) as any
-      : new SQLiteStore({
-          db: 'sessions.sqlite',
-          dir: './'
-        }) as any,
+    store: sessionStore,
     secret: process.env.SESSION_SECRET || 'your-secret-here',
     resave: false,
     saveUninitialized: false,
