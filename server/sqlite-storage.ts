@@ -153,7 +153,7 @@ export class SQLiteStorage implements IStorage {
       parentTokenId: row.parent_token_id,
       keyType: row.key_type,
       expiresAt: row.expires_at,
-      disabled: !Boolean(row.enabled), // Convert enabled to disabled
+      enabled: Boolean(row.enabled),
       sigmaBoy: Boolean(row.sigma_boy),
       maxSubKeys: row.max_sub_keys,
       createdByProviderId: row.created_by_provider_id ?? undefined,
@@ -537,8 +537,8 @@ export class SQLiteStorage implements IStorage {
       
       // Create a Map of existing models by modelId
       const existingModelMap = new Map(
-        existingModels.map(m => [m.modelId, m])
-      );
+        existingModels.map((m: Model) => [m.modelId, m])
+      ) as Map<string, Model>;
       
       const resultModels: Model[] = [];
       
@@ -548,9 +548,9 @@ export class SQLiteStorage implements IStorage {
         
         if (existing) {
           // Model exists - if it was disabled, re-enable it (model came back!)
-          if (!existing.enabled) {
+          if (!existing!.enabled) {
             const updateStmt = this.db.prepare('UPDATE models SET enabled = 1 WHERE id = ?');
-            updateStmt.run(existing.id);
+            updateStmt.run(existing!.id);
             
             resultModels.push({
               ...existing,
@@ -558,7 +558,7 @@ export class SQLiteStorage implements IStorage {
             });
           } else {
             // Model already exists and is enabled - keep as-is
-            resultModels.push(existing);
+            resultModels.push(existing!);
           }
         } else {
           // New model - create it
@@ -764,7 +764,7 @@ export class SQLiteStorage implements IStorage {
         userToken.parentTokenId || null,
         userToken.keyType || "master",
         userToken.expiresAt || null,
-        userToken.disabled ? 0 : 1,
+        userToken.enabled ? 1 : 0,
         userToken.sigmaBoy ? 1 : 0,
         userToken.maxSubKeys || 20,
         userToken.createdByProviderId || null
@@ -1023,7 +1023,7 @@ export class SQLiteStorage implements IStorage {
 
       // Check each token in the chain to make sure none of em bitches are disabled
       for (const token of chain) {
-        if (token.disabled) {
+        if (!token.enabled) {
           return {
             valid: false,
             reason: `Token disabled: ${token.name} (${token.keyType === "master" ? "master key" : "sub-key"})`,
@@ -1155,7 +1155,7 @@ export class SQLiteStorage implements IStorage {
       const subKeys = await this.getSubKeys(parentTokenId);
 
       for (const subKey of subKeys) {
-        await this.updateUserToken(subKey.id, { disabled: true });
+        await this.updateUserToken(subKey.id, { enabled: false });
         totalDisabled++;
 
         const childrenDisabled = await this.cascadeDisableSubKeys(subKey.id);
@@ -1178,7 +1178,7 @@ export class SQLiteStorage implements IStorage {
         const isExpired = subKey.expiresAt && subKey.expiresAt <= Date.now();
 
         if (!isExpired) {
-          await this.updateUserToken(subKey.id, { disabled: false });
+          await this.updateUserToken(subKey.id, { enabled: true });
           totalEnabled++;
 
           const childrenEnabled = await this.cascadeEnableSubKeys(subKey.id);

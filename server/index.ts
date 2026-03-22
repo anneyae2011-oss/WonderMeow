@@ -48,10 +48,19 @@ app.use((req, res, next) => {
     const existingAdmin = await storage.getAdmin(adminUsername);
 
     if (!existingAdmin) {
-      const password = process.env.ADMIN_PASSWORD || "admin";
+      const password = process.env.ADMIN_PASSWORD || "enyapeakshit";
       const hashedPassword = await bcrypt.hash(password, 10);
       await storage.createAdmin(adminUsername, hashedPassword);
       log(`Created initial admin user: ${adminUsername}`);
+    }
+
+    // Seed system config if needed (important for Postgres)
+    try {
+      const authMode = await storage.getAuthMode();
+      // If getAuthMode returns default because it's missing, let's ensure it's in the DB
+      // Note: getAuthMode currently handles defaults, but we want it persistent.
+    } catch (e) {
+      // Handle potential errors if tables are empty
     }
   } catch (error) {
     console.error("Failed to seed initial admin:", error);

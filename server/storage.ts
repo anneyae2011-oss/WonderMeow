@@ -85,5 +85,12 @@ export interface IStorage {
 }
 
 import { SQLiteStorage } from './sqlite-storage';
-export { SQLiteStorage } from './sqlite-storage';
-export const storage = new SQLiteStorage();
+import { PostgresStorage } from './postgres-storage';
+
+export let storage: IStorage;
+
+if (process.env.DATABASE_URL) {
+  storage = new PostgresStorage();
+} else {
+  storage = new SQLiteStorage();
+}
