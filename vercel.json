@@ -1,27 +1,13 @@
 {
   "version": 2,
-  "builds": [
-    {
-      "src": "server/index.ts",
-      "use": "@vercel/node"
-    }
-  ],
   "rewrites": [
     {
       "source": "/(api|v1|ws)(.*)",
-      "destination": "/server/index.ts"
+      "destination": "/api/index.ts"
     },
     {
       "source": "/(.*)",
-      "destination": "/client/$1"
-    }
-  ],
-  "headers": [
-    {
-      "source": "/(.*)",
-      "headers": [
-        { "key": "Access-Control-Allow-Origin", "value": "*" }
-      ]
+      "destination": "/index.html"
     }
   ]
 }
