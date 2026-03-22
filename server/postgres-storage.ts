@@ -152,22 +152,24 @@ export class PostgresStorage implements IStorage {
     // In serverless, we'll do this in multiple steps since we don't have long transactions in the same way.
     
     const existingModels = await this.getModels(providerId);
-    const existingModelMap = new Map(existingModels.map(m => [m.modelId, m]));
-    const newModelIdSet = new Set(modelIds);
+    const uniqueModelIds = [...new Set(modelIds)];
+    const existingModelMap = new Map<string, schema.Model>(existingModels.map(m => [m.modelId, m]));
+    const newModelIdSet = new Set(uniqueModelIds);
     
     const resultModels: schema.Model[] = [];
     
-    for (const modelId of modelIds) {
+    for (const modelId of uniqueModelIds) {
       const existing = existingModelMap.get(modelId);
       if (existing) {
-        if (!existing.enabled) {
+        const m = existing as schema.Model;
+        if (!m.enabled) {
           const [updated] = await this.db.update(schema.models)
             .set({ enabled: true })
-            .where(eq(schema.models.id, existing.id))
+            .where(eq(schema.models.id, m.id))
             .returning();
           resultModels.push(updated);
         } else {
-          resultModels.push(existing);
+          resultModels.push(m);
         }
       } else {
         const newModel = await this.createModel({
@@ -181,11 +183,11 @@ export class PostgresStorage implements IStorage {
       }
     }
     
-    for (const existing of existingModels) {
-      if (!newModelIdSet.has(existing.modelId) && existing.enabled) {
+    for (const m of existingModels) {
+      if (!newModelIdSet.has(m.modelId) && m.enabled) {
         const [updated] = await this.db.update(schema.models)
           .set({ enabled: false })
-          .where(eq(schema.models.id, existing.id))
+          .where(eq(schema.models.id, m.id))
           .returning();
         resultModels.push(updated);
       }

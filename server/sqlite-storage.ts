@@ -532,8 +532,9 @@ export class SQLiteStorage implements IStorage {
       const existingStmt = this.db.prepare('SELECT * FROM models WHERE provider_id = ?');
       const existingModels = existingStmt.all(providerId).map(this.rowToModel);
       
-      // Create a Set of new model IDs for quick lookup
-      const newModelIdSet = new Set(modelIds);
+      // Create a Set of unique model IDs for quick lookup and to avoid duplicates
+      const uniqueModelIds = [...new Set(modelIds)];
+      const newModelIdSet = new Set(uniqueModelIds);
       
       // Create a Map of existing models by modelId
       const existingModelMap = new Map(
@@ -543,7 +544,7 @@ export class SQLiteStorage implements IStorage {
       const resultModels: Model[] = [];
       
       // Process new models: add if they don't exist, re-enable if they do
-      for (const modelId of modelIds) {
+      for (const modelId of uniqueModelIds) {
         const existing = existingModelMap.get(modelId);
         
         if (existing) {

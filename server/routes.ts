@@ -277,11 +277,14 @@ async function syncProviderModels(providerId: string) {
     throw new Error("Unexpected response format from provider");
   }
 
-  if (modelIds.length === 0) {
+  // Deduplicate model IDs before sorting and replacing
+  const uniqueModelIds = Array.from(new Set(modelIds));
+
+  if (uniqueModelIds.length === 0) {
     throw new Error("No models found in provider response");
   }
 
-  const sortedModelIds = modelIds.sort((a, b) => a.toLowerCase().localeCompare(b.toLowerCase()));
+  const sortedModelIds = uniqueModelIds.sort((a, b) => a.toLowerCase().localeCompare(b.toLowerCase()));
   const models = await storage.replaceProviderModels(provider.id, sortedModelIds);
 
   return { models, count: models.length };

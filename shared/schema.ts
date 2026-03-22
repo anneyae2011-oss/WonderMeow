@@ -1,4 +1,4 @@
-import { pgTable, text, serial, integer, boolean, timestamp, real, jsonb } from "drizzle-orm/pg-core";
+import { pgTable, text, serial, integer, boolean, timestamp, real, jsonb, bigint, unique } from "drizzle-orm/pg-core";
 import { createInsertSchema, createSelectSchema } from "drizzle-zod";
 import { z } from "zod";
 
@@ -29,7 +29,9 @@ export const models = pgTable("models", {
   enabled: boolean("enabled").notNull().default(true),
   requestCost: real("request_cost").notNull().default(1.0),
   tokenLimit: integer("token_limit"),
-});
+}, (table) => ({
+  unq: unique().on(table.providerId, table.modelId),
+}));
 
 export const userTokens = pgTable("user_tokens", {
   id: text("id").primaryKey(),
@@ -73,9 +75,6 @@ export const systemConfig = pgTable("system_config", {
   value: text("value").notNull(),
   updatedAt: bigint("updated_at", { mode: "number" }).notNull(),
 });
-
-// BigInt import from pg-core for unix timestamps
-import { bigint } from "drizzle-orm/pg-core";
 
 // Provider schema
 export interface Provider {
