@@ -29,7 +29,10 @@ export class SQLiteStorage implements IStorage {
   private startTime: number = Date.now();
 
   constructor(dbPath?: string) {
-    const databasePath = dbPath || path.join(process.cwd(), 'database.sqlite');
+    const defaultPath = process.env.VERCEL 
+      ? path.join('/tmp', 'database.sqlite')
+      : path.join(process.cwd(), 'database.sqlite');
+    const databasePath = dbPath || defaultPath;
 
     // Initialize database
     this.db = new Database(databasePath);

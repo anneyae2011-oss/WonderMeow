@@ -107,9 +107,11 @@ const userManageRateLimit = rateLimit({
 
 import session from "express-session";
 import connectSqlite3 from "connect-sqlite3";
+import memoryStore from "memorystore";
 import bcrypt from "bcrypt";
 
 const SQLiteStore = connectSqlite3(session);
+const MemoryStore = memoryStore(session);
 
 // Middleware for admin authentication
 function adminAuth(req: Request, res: Response, next: Function) {
@@ -316,10 +318,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   // Session configuration
   app.use(session({
-    store: new SQLiteStore({
-      db: 'sessions.sqlite',
-      dir: './'
-    }) as any,
+    store: (process.env.VERCEL || !process.env.SESSION_SECRET) 
+      ? new MemoryStore({ checkPeriod: 86400000 }) as any
+      : new SQLiteStore({
+          db: 'sessions.sqlite',
+          dir: './'
+        }) as any,
     secret: process.env.SESSION_SECRET || 'your-secret-here',
     resave: false,
     saveUninitialized: false,
