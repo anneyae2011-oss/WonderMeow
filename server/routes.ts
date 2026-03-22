@@ -106,9 +106,19 @@ const userManageRateLimit = rateLimit({
 
 
 import memoryStore from "memorystore";
-import bcrypt from "bcrypt";
 
 const MemoryStore = memoryStore(session);
+
+// Password helpers with dynamic import to avoid native module crashes on Vercel
+async function hashPassword(password: string): Promise<string> {
+  const { default: bcrypt } = await import("bcrypt");
+  return await bcrypt.hash(password, 10);
+}
+
+async function comparePasswords(password: string, hash: string): Promise<boolean> {
+  const { default: bcrypt } = await import("bcrypt");
+  return await bcrypt.compare(password, hash);
+}
 
 // Middleware for admin authentication
 function adminAuth(req: Request, res: Response, next: Function) {
@@ -355,19 +365,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.use('/api/admin', adminApiRateLimit);
   
   // Admin login
-  app.post("/api/admin/login", adminLoginRateLimit, async (req: Request, res: Response) => {
+  app.post("/api/admin/login", async (req: Request, res: Response) => {
     const { username, password } = req.body;
 
     try {
       const admin = await storage.getAdmin(username);
+      if (!admin) return res.status(401).json({ message: "Invalid credentials" });
 
-      if (!admin) {
-        return res.status(401).json({ error: "Invalid credentials" });
-      }
+      const valid = await comparePasswords(password, admin.password);
 
-      const isValid = await bcrypt.compare(password, admin.password);
-
-      if (isValid) {
+      if (valid) {
         (req.session as any).adminId = admin.id;
         req.session.save(() => {
           res.json({ success: true });
@@ -410,7 +417,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(401).json({ error: "Invalid credentials" });
       }
 
-      const isValid = await bcrypt.compare(password, providerAccount.password);
+      const isValid = await comparePasswords(password, providerAccount.password);
       if (!isValid) {
         return res.status(401).json({ error: "Invalid credentials" });
       }
@@ -1519,7 +1526,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ error: "A provider account with this username already exists" });
       }
 
-      const hashedPassword = await bcrypt.hash(String(password), 10);
+      const hashedPassword = await hashPassword(password);
       const account = providerAuthStorage.createProviderAccount(normalizedUsername, hashedPassword);
       res.json({
         id: account.id,

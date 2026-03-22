@@ -3,7 +3,16 @@ import express, { type Request, Response, NextFunction } from "express";
 import { registerRoutes } from "./routes";
 import { setupVite, serveStatic, log } from "./vite";
 import { storage, initStorage } from "./storage";
-import bcrypt from "bcrypt";
+
+// Add global error handlers for serverless stability
+process.on("uncaughtException", (err) => {
+  console.error("Global Uncaught Exception:", err);
+  // In serverless, we might not be able to do much here, but logging helps.
+});
+
+process.on("unhandledRejection", (reason, promise) => {
+  console.error("Global Unhandled Rejection at:", promise, "reason:", reason);
+});
 
 export const app = express();
 app.use(express.json({ limit: '4mb' }));
@@ -44,25 +53,37 @@ let initPromise: Promise<any> | null = null;
 async function ensureInitialized() {
   if (initPromise) return initPromise;
   initPromise = (async () => {
-    await initStorage();
-    return await registerRoutes(app);
+    try {
+      await initStorage();
+      return await registerRoutes(app);
+    } catch (err) {
+      console.error("Failed to initialize storage or routes:", err);
+      throw err;
+    }
   })();
   return initPromise;
 }
 
 (async () => {
+  // Only start the server if not running on Vercel. 
+  // Vercel handles the application lifecycle itself.
   if (!process.env.VERCEL) {
     try {
       const server = await ensureInitialized();
 
-      // Seed initial admin if needed
-      const adminUsername = process.env.ADMIN_USERNAME || 'admin';
-      const adminPassword = process.env.ADMIN_PASSWORD || 'admin123';
-      const existingAdmin = await storage.getAdmin(adminUsername);
-      if (!existingAdmin) {
-        const hashedPassword = await bcrypt.hash(adminPassword, 10);
-        await storage.createAdmin(adminUsername, hashedPassword);
-        log(`Created initial admin user: ${adminUsername}`);
+      // Seed initial admin if needed (local only)
+      try {
+        const adminUsername = process.env.ADMIN_USERNAME || 'admin';
+        const adminPassword = process.env.ADMIN_PASSWORD || 'admin123';
+        const existingAdmin = await storage.getAdmin(adminUsername);
+        if (!existingAdmin) {
+          const { default: bcrypt } = await import("bcrypt");
+          const hashedPassword = await bcrypt.hash(adminPassword, 10);
+          await storage.createAdmin(adminUsername, hashedPassword);
+          log(`Created initial admin user: ${adminUsername}`);
+        }
+      } catch (err) {
+        log(`Error seeding admin: ${err}`);
       }
 
       app.use((err: any, _req: Request, res: Response, _next: NextFunction) => {
@@ -85,12 +106,18 @@ async function ensureInitialized() {
         log(`serving on port ${port}`);
       });
     } catch (err) {
-      console.error("Initialization failed:", err);
+      console.error("Startup sequence failed:", err);
     }
   }
 })();
 
+// For Vercel, we export the app instance wrapped in an initialization waiter.
 export default async (req: any, res: any) => {
-  await ensureInitialized();
-  return app(req, res);
+  try {
+    await ensureInitialized();
+    return app(req, res);
+  } catch (err: any) {
+    console.error("Vercel Invocation Error:", err);
+    res.status(500).send(`Application Initialization Error: ${err.message}`);
+  }
 };
