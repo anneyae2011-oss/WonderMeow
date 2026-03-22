@@ -180,7 +180,7 @@ export default function Dashboard() {
       <div
         className="fixed inset-0 pointer-events-none"
         style={{
-          backgroundImage: 'url(/assets/sayori.png)',
+          backgroundImage: 'url(/assets/wondermeow_bg.png)',
           backgroundSize: 'cover',
           backgroundPosition: 'center',
           backgroundRepeat: 'no-repeat',
@@ -193,7 +193,7 @@ export default function Dashboard() {
       <main className="container mx-auto px-6 py-8">
         {/* Hero Section */}
         <div className="text-center mb-12">
-          <h1 className="font-script text-6xl mb-4 christmas-gradient-text drop-shadow-md pb-2">Sayori Proxy</h1>
+          <h1 className="font-script text-6xl mb-4 christmas-gradient-text drop-shadow-md pb-2">WonderMeow</h1>
           <p className="text-muted-foreground text-lg mb-6">
             Router that will never leave you hanging.
           </p>
@@ -291,7 +291,7 @@ export default function Dashboard() {
         <h2 className="text-2xl font-semibold mb-6 text-primary">Model Usage Guide</h2>
         <div className="bg-muted/30 rounded-lg p-6 space-y-4">
           <p className="text-sm text-muted-foreground">
-            When using Sayori Proxy, use the following model IDs in your API requests to <code className="text-xs bg-background px-2 py-1 rounded font-mono border">/v1/chat/completions</code>:
+            When using WonderMeow, use the following model IDs in your API requests to <code className="text-xs bg-background px-2 py-1 rounded font-mono border">/v1/chat/completions</code>:
           </p>
           {sayoriModels.length > 0 ? (
             <div className="space-y-2">
@@ -320,7 +320,7 @@ export default function Dashboard() {
       {/* Footer */}
       <footer className="border-t mt-12 py-6">
         <div className="container mx-auto px-6 text-center text-sm text-muted-foreground">
-          <p>Sayori Proxy - Will you gently open the door?</p>
+          <p>WonderMeow - Will you gently open the door?</p>
         </div>
       </footer>
     </div>

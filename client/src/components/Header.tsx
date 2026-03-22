@@ -18,8 +18,8 @@ export function Header({ hideProviderLogin = false }: HeaderProps) {
           className="flex items-center gap-2 bg-transparent border-none cursor-pointer p-0"
           data-testid="link-home"
         >
-          <img src="/assets/fruin_icon.png" alt="Fruin Icon" className="h-8 w-auto object-contain" />
-          <h1 className="font-script text-3xl text-primary">Sayori Proxy</h1>
+          <img src="/assets/wondermeow_icon.png" alt="WonderMeow Icon" className="h-8 w-auto object-contain" />
+          <h1 className="font-script text-3xl text-primary">WonderMeow</h1>
         </button>
         
         <div className="flex items-center gap-3">

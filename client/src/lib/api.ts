@@ -1,4 +1,4 @@
-// API utility functions for Sayori Proxy
+// API utility functions for WonderMeow
 
 export const api = {
   // Stats
