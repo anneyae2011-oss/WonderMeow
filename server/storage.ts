@@ -92,6 +92,8 @@ export async function initStorage() {
     storage = new PostgresStorage();
   } else {
     const { SQLiteStorage } = await import('./sqlite-storage');
-    storage = new SQLiteStorage();
+    // @ts-ignore
+    const DatabaseClass = (await import('better-sqlite3')).default;
+    storage = new SQLiteStorage(DatabaseClass);
   }
 }
