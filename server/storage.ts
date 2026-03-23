@@ -85,16 +85,27 @@ export interface IStorage {
   getGeneralPassword(): Promise<string | undefined>;
 }
 
+import { PostgresStorage } from './postgres-storage.js';
+
 export let storage: IStorage;
 
 export async function initStorage() {
+  if (storage) return;
+
   if (process.env.DATABASE_URL) {
-    const { PostgresStorage } = await import('./postgres-storage.js');
+    console.log("[STORAGE] Initializing PostgresStorage (Vercel/Production)");
     storage = new PostgresStorage();
   } else {
-    const { SQLiteStorage } = await import('./sqlite-storage.js');
-    // @ts-ignore
-    const DatabaseClass = (await import('better-sqlite3')).default;
-    storage = new SQLiteStorage(DatabaseClass);
+    try {
+      console.log("[STORAGE] Initializing SQLiteStorage (Local/Development)");
+      const { SQLiteStorage } = await import('./sqlite-storage.js');
+      // @ts-ignore
+      const { default: DatabaseClass } = await import('better-sqlite3');
+      storage = new SQLiteStorage(DatabaseClass);
+    } catch (err) {
+      console.error("[STORAGE] SQLite initialization failed (normal on Vercel without DATABASE_URL):", err);
+      // Fallback to prevent undefined storage
+      storage = new PostgresStorage();
+    }
   }
 }
