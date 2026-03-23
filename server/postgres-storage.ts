@@ -131,6 +131,19 @@ export class PostgresStorage implements IStorage {
     return updated;
   }
 
+  async bulkUpdateModelsByIds(updates: { id: string; enabled?: boolean; requestCost?: number; tokenLimit?: number | null }[]): Promise<schema.Model[]> {
+    const results: schema.Model[] = [];
+    for (const update of updates) {
+      const { id, ...data } = update;
+      const [updated] = await this.db.update(schema.models)
+        .set(data)
+        .where(eq(schema.models.id, id))
+        .returning();
+      if (updated) results.push(updated);
+    }
+    return results;
+  }
+
   async updateModelsByProvider(providerId: string, updates: Partial<schema.InsertModel>): Promise<schema.Model[]> {
     return await this.db.update(schema.models)
       .set(updates)

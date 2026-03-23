@@ -16,7 +16,7 @@ const storage: any = new Proxy({}, {
 
 // Handle ESM/CJS compatibility for session
 const sessionFunc = (session as any).default || session;
-const MemoryStore = (MemoryStoreFactory as any).default ? (MemoryStoreFactory as any).default(sessionFunc) : MemoryStoreFactory(sessionFunc);
+const MemoryStore = (MemoryStoreFactory && (MemoryStoreFactory as any).default) ? (MemoryStoreFactory as any).default(sessionFunc) : MemoryStoreFactory(sessionFunc);
 import { providerAuthStorage } from "./provider-auth-storage.js";
 import { hashPassword, comparePasswords } from "./auth.js";
 import {
@@ -740,7 +740,7 @@ async function _registerRoutes(app: Express): Promise<Server> {
             remainingRPD: Number((subKey.maxRPD - subKeyUsage).toFixed(2)),
             createdAt: subKey.createdAt,
             expiresAt: subKey.expiresAt,
-            disabled: subKey.disabled || false,
+            enabled: subKey.enabled ?? true,
             allowedProviders: subKeyProviderNames, // Array of names for display
             allowedProviderIds: subKeyProviderIds, // Array of IDs for logic
           };
@@ -913,7 +913,7 @@ async function _registerRoutes(app: Express): Promise<Server> {
 
     try {
       // Disable the sub-key
-      await storage.updateUserToken(subKey.id, { disabled: true });
+      await storage.updateUserToken(subKey.id, { enabled: false });
       // Cascade disable all children
       const disabledCount = await storage.cascadeDisableSubKeys(subKey.id);
 
@@ -953,7 +953,7 @@ async function _registerRoutes(app: Express): Promise<Server> {
 
     try {
       // Enable the sub-key
-      await storage.updateUserToken(subKey.id, { disabled: false });
+      await storage.updateUserToken(subKey.id, { enabled: true });
       // Cascade enable all non-expired children
       const enabledCount = await storage.cascadeEnableSubKeys(subKey.id);
 
@@ -1520,7 +1520,7 @@ async function _registerRoutes(app: Express): Promise<Server> {
     }
 
     try {
-      await storage.updateUserToken(subKey.id, { disabled: true });
+      await storage.updateUserToken(subKey.id, { enabled: false });
       const disabledCount = await storage.cascadeDisableSubKeys(subKey.id);
       res.json({ success: true, disabledCount: disabledCount + 1 });
     } catch (error: any) {
@@ -1540,7 +1540,7 @@ async function _registerRoutes(app: Express): Promise<Server> {
     }
 
     try {
-      await storage.updateUserToken(subKey.id, { disabled: false });
+      await storage.updateUserToken(subKey.id, { enabled: true });
       const enabledCount = await storage.cascadeEnableSubKeys(subKey.id);
       res.json({ success: true, enabledCount: enabledCount + 1 });
     } catch (error: any) {

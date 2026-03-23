@@ -1,7 +1,7 @@
 import "dotenv/config";
 import express, { type Request, Response, NextFunction } from "express";
 import { registerRoutes } from "./routes.js";
-import { storage, initStorage } from "./storage.js";
+import { getStorage, initStorage } from "./storage.js";
 import { log } from "./log.js";
 
 // Add global error handlers for serverless stability
@@ -58,11 +58,11 @@ async function ensureInitialized() {
       try {
         const adminUsername = process.env.ADMIN_USERNAME || 'enyapeakshit';
         const adminPassword = process.env.ADMIN_PASSWORD || 'enyapeakshit';
-        const existingAdmin = await storage.getAdmin(adminUsername);
+        const existingAdmin = await getStorage().getAdmin(adminUsername);
         if (!existingAdmin) {
           const { hashPassword } = await import("./auth.js");
           const hashedPassword = hashPassword(adminPassword);
-          await storage.createAdmin(adminUsername, hashedPassword);
+          await getStorage().createAdmin(adminUsername, hashedPassword);
           log(`Created initial admin user: ${adminUsername}`);
         }
       } catch (err) {

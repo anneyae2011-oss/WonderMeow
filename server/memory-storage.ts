@@ -105,6 +105,16 @@ export class MemoryStorage implements IStorage {
     return updated;
   }
 
+  async bulkUpdateModelsByIds(updates: { id: string; enabled?: boolean; requestCost?: number; tokenLimit?: number | null }[]): Promise<schema.Model[]> {
+    const results: schema.Model[] = [];
+    for (const update of updates) {
+      const { id, ...data } = update;
+      const updated = await this.updateModel(id, data);
+      if (updated) results.push(updated);
+    }
+    return results;
+  }
+
   async updateModelsByProvider(providerId: string, updates: Partial<schema.InsertModel>): Promise<schema.Model[]> {
     const updated: schema.Model[] = [];
     for (const model of this.models.values()) {
@@ -129,8 +139,8 @@ export class MemoryStorage implements IStorage {
   async replaceProviderModels(providerId: string, modelIds: string[]): Promise<schema.Model[]> {
     await this.deleteModelsByProvider(providerId);
     const created: schema.Model[] = [];
-    for (const name of modelIds) {
-      created.push(await this.createModel({ providerId, name, enabled: true, requestCost: 0 }));
+    for (const modelId of modelIds) {
+      created.push(await this.createModel({ providerId, modelId, enabled: true, requestCost: 0 }));
     }
     return created;
   }

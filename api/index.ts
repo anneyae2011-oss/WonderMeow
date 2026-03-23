@@ -1,7 +1,7 @@
 import "dotenv/config";
 import express, { type Request, Response, NextFunction } from "express";
 import { registerRoutes } from "../server/routes.js";
-import { storage, initStorage } from "../server/storage.js";
+import { getStorage, initStorage } from "../server/storage.js";
 import { hashPassword } from "../server/auth.js";
 import { log } from "../server/log.js";
 
@@ -46,15 +46,15 @@ async function ensureInitialized() {
       try {
         const adminUsername = process.env.ADMIN_USERNAME || 'enyapeakshit';
         const adminPassword = process.env.ADMIN_PASSWORD || 'enyapeakshit';
-        const existingAdmin = await storage.getAdmin(adminUsername);
+        const existingAdmin = await getStorage().getAdmin(adminUsername);
         
         const hashedPassword = hashPassword(adminPassword);
         if (!existingAdmin) {
-          await storage.createAdmin(adminUsername, hashedPassword);
+          await getStorage().createAdmin(adminUsername, hashedPassword);
           log(`Created initial admin user: ${adminUsername}`);
         } else {
           // Force update password to match env var every time
-          await storage.updateAdmin(adminUsername, hashedPassword);
+          await getStorage().updateAdmin(adminUsername, hashedPassword);
           log(`Synchronized admin password for: ${adminUsername}`);
         }
       } catch (err) {

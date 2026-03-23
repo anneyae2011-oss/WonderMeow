@@ -34,6 +34,7 @@ export interface IStorage {
   getModels(providerId?: string): Promise<Model[]>;
   createModel(model: InsertModel): Promise<Model>;
   updateModel(id: string, model: Partial<InsertModel>): Promise<Model | undefined>;
+  bulkUpdateModelsByIds(updates: { id: string; enabled?: boolean; requestCost?: number; tokenLimit?: number | null }[]): Promise<Model[]>;
   updateModelsByProvider(providerId: string, updates: Partial<InsertModel>): Promise<Model[]>;
   deleteModel(id: string): Promise<boolean>;
   deleteModelsByProvider(providerId: string): Promise<void>;
