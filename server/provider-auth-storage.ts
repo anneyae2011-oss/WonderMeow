@@ -9,8 +9,15 @@ export interface ProviderAccount {
   createdAt: number;
 }
 
-  private memoryStore: Map<string, any> = new Map();
+export class ProviderAuthStorage {
+  private db: any | null = null;
+  private dbPath: string;
+  private memoryStore: Map<string, ProviderAccount> = new Map();
   private useMemory: boolean = false;
+
+  constructor(dbPath?: string) {
+    this.dbPath = dbPath || path.join(process.cwd(), "providers.db");
+  }
 
   private async ensureDb() {
     if (this.db || this.useMemory) return;
@@ -26,6 +33,7 @@ export interface ProviderAccount {
   }
 
   private initializeDatabase(): void {
+    if (!this.db) return;
     this.db.exec(`
       CREATE TABLE IF NOT EXISTS provider_accounts (
         id TEXT PRIMARY KEY,
@@ -61,6 +69,9 @@ export interface ProviderAccount {
 
   async getProviderById(id: string): Promise<ProviderAccount | undefined> {
     await this.ensureDb();
+    if (this.useMemory) {
+      return this.memoryStore.get(id);
+    }
     const row = this.db.prepare("SELECT * FROM provider_accounts WHERE id = ?").get(id);
     return row ? this.rowToProvider(row) : undefined;
   }
@@ -76,8 +87,11 @@ export interface ProviderAccount {
 
   async getProviderAccounts(): Promise<ProviderAccount[]> {
     await this.ensureDb();
+    if (this.useMemory) {
+      return Array.from(this.memoryStore.values()).sort((a, b) => b.createdAt - a.createdAt);
+    }
     const rows = this.db.prepare("SELECT * FROM provider_accounts ORDER BY created_at DESC").all();
-    return rows.map((row) => this.rowToProvider(row));
+    return rows.map((row: any) => this.rowToProvider(row));
   }
 
   async createProviderAccount(username: string, passwordHash: string): Promise<ProviderAccount> {
@@ -101,6 +115,16 @@ export interface ProviderAccount {
 
   async updateProviderAccount(id: string, updates: { username?: string; passwordHash?: string; clearSession?: boolean }): Promise<ProviderAccount | undefined> {
     await this.ensureDb();
+    
+    if (this.useMemory) {
+      const account = this.memoryStore.get(id);
+      if (!account) return undefined;
+      if (updates.username !== undefined) account.username = updates.username;
+      if (updates.passwordHash !== undefined) account.password = updates.passwordHash;
+      if (updates.clearSession) account.sessionToken = undefined;
+      return account;
+    }
+
     const fields: string[] = [];
     const values: any[] = [];
 
@@ -127,6 +151,9 @@ export interface ProviderAccount {
 
   async deleteProviderAccount(id: string): Promise<boolean> {
     await this.ensureDb();
+    if (this.useMemory) {
+      return this.memoryStore.delete(id);
+    }
     const stmt = this.db.prepare("DELETE FROM provider_accounts WHERE id = ?");
     const result = stmt.run(id);
     return result.changes > 0;
@@ -134,12 +161,22 @@ export interface ProviderAccount {
 
   async setProviderSession(id: string, sessionToken: string): Promise<void> {
     await this.ensureDb();
+    if (this.useMemory) {
+      const account = this.memoryStore.get(id);
+      if (account) account.sessionToken = sessionToken;
+      return;
+    }
     const stmt = this.db.prepare("UPDATE provider_accounts SET session_token = ? WHERE id = ?");
     stmt.run(sessionToken, id);
   }
 
   async clearProviderSession(id: string): Promise<void> {
     await this.ensureDb();
+    if (this.useMemory) {
+      const account = this.memoryStore.get(id);
+      if (account) account.sessionToken = undefined;
+      return;
+    }
     const stmt = this.db.prepare("UPDATE provider_accounts SET session_token = NULL WHERE id = ?");
     stmt.run(id);
   }
