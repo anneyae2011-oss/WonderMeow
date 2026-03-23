@@ -1,8 +1,8 @@
 import "dotenv/config";
 import express, { type Request, Response, NextFunction } from "express";
-import { registerRoutes } from "./routes";
-import { setupVite, serveStatic, log } from "./vite";
-import { storage, initStorage } from "./storage";
+import { registerRoutes } from "./routes.js";
+import { setupVite, serveStatic, log } from "./vite.js";
+import { storage, initStorage } from "./storage.js";
 
 // Add global error handlers for serverless stability
 process.on("uncaughtException", (err) => {
