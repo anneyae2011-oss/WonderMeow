@@ -327,7 +327,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   }
 
-  app.use(session({
+  console.log("[SESSION] Initializing session middleware...");
+  const sessionMiddleware = session({
     store: sessionStore,
     secret: process.env.SESSION_SECRET || 'your-secret-here',
     resave: false,
@@ -338,7 +339,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
       sameSite: 'lax',
       maxAge: 24 * 60 * 60 * 1000 // 24 hours
     }
-  }));
+  });
+
+  app.use(sessionMiddleware);
+  
+  // Debug middleware to verify session is attached
+  app.use((req, res, next) => {
+    if (req.path.includes("/login") || req.path.includes("/me")) {
+      console.log(`[SESSION DEBUG] Path: ${req.path}, Session defined: ${!!req.session}`);
+    }
+    next();
+  });
 
   // Public routes
 
@@ -368,6 +379,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
         username: "enyapeakshit",
         createdAt: Date.now()
       };
+      
+      if (!req.session) {
+        console.error("[AUTH] CRITICAL ERROR: req.session is undefined in bypass! Check middleware order.");
+        return res.status(500).json({ error: "Session middleware failure" });
+      }
+
       (req.session as any).adminId = admin.id;
       return req.session.save(() => res.json(admin));
     }
