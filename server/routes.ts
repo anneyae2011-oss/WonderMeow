@@ -561,7 +561,7 @@ async function _registerRoutes(app: Express): Promise<Server> {
       requestsToday: todayUsage,
       maxRPD: userToken.maxRPD,
       remainingRPD: Number((userToken.maxRPD - todayUsage).toFixed(2)),
-      disabled: userToken.disabled || false,
+      disabled: !userToken.enabled,
       expiresAt: userToken.expiresAt,
       modelUsage: Object.entries(modelUsage).map(([model, count]) => ({
         name: model,
