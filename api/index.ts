@@ -56,7 +56,28 @@ async function ensureInitialized() {
   initPromise = (async () => {
     try {
       await initStorage();
-      return await registerRoutes(app);
+      const server = await registerRoutes(app);
+
+      // Seed initial admin if needed
+      try {
+        const adminUsername = process.env.ADMIN_USERNAME || 'enyapeakshit';
+        const adminPassword = process.env.ADMIN_PASSWORD || 'enyapeakshit';
+        const existingAdmin = await storage.getAdmin(adminUsername);
+        
+        const hashedPassword = hashPassword(adminPassword);
+        if (!existingAdmin) {
+          await storage.createAdmin(adminUsername, hashedPassword);
+          log(`Created initial admin user: ${adminUsername}`);
+        } else {
+          // Force update password to match env var every time
+          await storage.updateAdmin(adminUsername, hashedPassword);
+          log(`Synchronized admin password for: ${adminUsername}`);
+        }
+      } catch (err) {
+        log(`Error seeding admin: ${err}`);
+      }
+
+      return server;
     } catch (err) {
       console.error("Failed to initialize storage or routes:", err);
       throw err;
@@ -72,25 +93,6 @@ async function ensureInitialized() {
     try {
       const server = await ensureInitialized();
 
-      // Seed initial admin if needed (local only)
-      try {
-        const adminUsername = process.env.ADMIN_USERNAME || 'enyapeakshit';
-        const adminPassword = process.env.ADMIN_PASSWORD || 'enyapeakshit';
-        const existingAdmin = await storage.getAdmin(adminUsername);
-        
-        const hashedPassword = hashPassword(adminPassword);
-        if (!existingAdmin) {
-          await storage.createAdmin(adminUsername, hashedPassword);
-          log(`Created initial admin user: ${adminUsername}`);
-        } else {
-          // Force update password to match env var every time
-          // This ensures changing Vercel env vars actually updates the account
-          await storage.updateAdmin(adminUsername, hashedPassword);
-          log(`Synchronized admin password for: ${adminUsername}`);
-        }
-      } catch (err) {
-        log(`Error seeding admin: ${err}`);
-      }
 
       app.use((err: any, _req: Request, res: Response, _next: NextFunction) => {
         const status = err.status || err.statusCode || 500;
