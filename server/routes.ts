@@ -274,6 +274,19 @@ async function syncProviderModels(providerId: string) {
 }
 
 export async function registerRoutes(app: Express): Promise<Server> {
+  // Global error handler for the entire router
+  app.use((err: any, req: Request, res: Response, next: any) => {
+    console.error("GLOBAL ROUTE ERROR:", err.message, err.stack);
+    if (!res.headersSent) {
+      res.status(500).json({ 
+        error: "Internal Server Error (Global Handler)", 
+        message: err.message, 
+        stack: err.stack,
+        path: req.path
+      });
+    }
+  });
+
   try {
     return await _registerRoutes(app);
   } catch (err: any) {
