@@ -11,7 +11,7 @@ import {
   InsertUsageRecord,
   Stats,
   Admin,
-} from "@shared/schema";
+} from "../shared/schema.js";
 
 export interface IStorage {
   // Provider methods
