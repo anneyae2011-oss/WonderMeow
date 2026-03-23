@@ -15,8 +15,21 @@ const storage: any = new Proxy({}, {
 });
 
 // Handle ESM/CJS compatibility for session
-const sessionFunc = (session as any).default || session;
-const MemoryStore = (MemoryStoreFactory && (MemoryStoreFactory as any).default) ? (MemoryStoreFactory as any).default(sessionFunc) : MemoryStoreFactory(sessionFunc);
+const sessionFunc = (session && (session as any).default) ? (session as any).default : session;
+let MemoryStore: any;
+try {
+  if (typeof MemoryStoreFactory === 'function') {
+    MemoryStore = MemoryStoreFactory(sessionFunc);
+  } else if (MemoryStoreFactory && typeof (MemoryStoreFactory as any).default === 'function') {
+    MemoryStore = (MemoryStoreFactory as any).default(sessionFunc);
+  } else {
+    console.warn("[AUTH] MemoryStoreFactory is not a function, trying fallback load...");
+    MemoryStore = (MemoryStoreFactory as any)(sessionFunc); 
+  }
+} catch (e: any) {
+  console.error("[AUTH] FAILED to initialize MemoryStore:", e.message);
+  // Last resort fallback
+}
 import { providerAuthStorage } from "./provider-auth-storage.js";
 import { hashPassword, comparePasswords } from "./auth.js";
 import {
@@ -2579,6 +2592,18 @@ async function _registerRoutes(app: Express): Promise<Server> {
 
     ws.on("close", () => {
       clearInterval(interval);
+    });
+  });
+
+  // Global error handler - MOVED TO END and enhanced for diagnostics
+  app.use((err: any, req: Request, res: Response, next: any) => {
+    console.error("GLOBAL ROUTE ERROR:", err.message, err.stack);
+    const status = err.status || err.statusCode || 500;
+    res.status(status).json({ 
+      error: "Internal Server Error", 
+      message: err.message, 
+      stack: process.env.NODE_ENV !== "production" ? err.stack : "Stack hidden in production",
+      diagnostic: "Take 45 Debugging"
     });
   });
 
