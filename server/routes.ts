@@ -302,16 +302,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   }));
 
   if (!process.env.SESSION_SECRET) {
-    if (process.env.NODE_ENV === 'production') {
-      throw new Error('SET A SESSION SECRET TO PREVENT COOKIE ATTACKS! THIS IS NON-NEGOTIABLE!');
-    } else {
-      console.log("WARNING: YOU HAVE NOT SET A SESSION SECRET IN THE ENV, " + 
-          "BUT THE APP STILL RUNS BECAUSE IT'S NONPRODUCTION MODE!");
-      console.log("WARNING: YOU HAVE NOT SET A SESSION SECRET IN THE ENV, " + 
-          "BUT THE APP STILL RUNS BECAUSE IT'S NONPRODUCTION MODE!");
-      console.log("WARNING: YOU HAVE NOT SET A SESSION SECRET IN THE ENV, " + 
-          "BUT THE APP STILL RUNS BECAUSE IT'S NONPRODUCTION MODE!");
-    }
+    console.log("WARNING: SESSION_SECRET not set. Using default failsafe secret.");
   }
 
   // Session configuration
