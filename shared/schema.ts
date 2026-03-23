@@ -89,6 +89,8 @@ export interface Provider {
 }
 
 export const insertProviderSchema = createInsertSchema(providers).extend({
+  id: z.string().optional(),
+  createdAt: z.number().optional(),
   baseUrl: z.string().url(),
   customHeaders: z.record(z.string()).optional(),
 });
