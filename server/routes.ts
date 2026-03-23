@@ -52,41 +52,16 @@ import { checkStringValidity, countInputTokens, estimateTokens, getClientIP } fr
 
 // Robust session store factory helper
 async function getSessionStore(sessionInstance: any) {
-  // Defensive dynamic imports to prevent top-level crashes
-  let Store: any;
-  if (process.env.VERCEL || !process.env.DATABASE_URL) {
-    console.log("[SESSION] Initializing MemoryStore factory...");
-    try {
-      const MemoryStoreFactoryMod = await import("memorystore");
-      const Factory = (MemoryStoreFactoryMod as any).default || MemoryStoreFactoryMod;
-      Store = Factory(sessionInstance);
-    } catch (e: any) {
-      console.error("[SESSION] MemoryStore import failed:", e.message);
-      throw new Error(`Failed to load session store: ${e.message}`);
-    }
-    return new Store({ checkPeriod: 86400000 });
-  }
-
-  console.log("[SESSION] Initializing PostgresStore...");
+  console.log("[SESSION] Initializing MemoryStore factory for Vercel/Production...");
   try {
-    const pgSimpleModule = await import('connect-pg-simple');
-    const PgStoreFactoryFactory = pgSimpleModule.default || pgSimpleModule;
-    const PgStoreFactory = PgStoreFactoryFactory(sessionInstance);
-    return new PgStoreFactory({
-      conString: process.env.DATABASE_URL,
-      tableName: 'session',
-      createTableIfMissing: true
-    });
+    const MemoryStoreFactoryMod = await import("memorystore");
+    const Factory = (MemoryStoreFactoryMod as any).default || MemoryStoreFactoryMod;
+    const Store = Factory(sessionInstance);
+    return new Store({ checkPeriod: 86400000 });
   } catch (e: any) {
-    console.warn("[SESSION] PostgresStore failed, falling back to MemoryStore:", e.message);
-    try {
-      const MemoryStoreFactoryMod = await import("memorystore");
-      const Factory = (MemoryStoreFactoryMod as any).default || MemoryStoreFactoryMod;
-      Store = Factory(sessionInstance);
-      return new Store({ checkPeriod: 86400000 });
-    } catch (e2: any) {
-      throw new Error(`Fatal session failure: ${e2.message}`);
-    }
+    console.error("[SESSION] MemoryStore initialization failed:", e.message);
+    // If even MemoryStore fails, return null - the middleware will use the default memory store
+    return null;
   }
 }
 
@@ -389,7 +364,7 @@ async function _registerRoutes(app: Express): Promise<Server> {
   const sessionStore = await getSessionStore(sessionInstance);
 
   const sessionMiddleware = sessionInstance({
-    store: sessionStore,
+    store: sessionStore || undefined,
     secret: process.env.SESSION_SECRET || 'sayori-proxy-ultra-secret-key-2024',
     resave: false,
     saveUninitialized: false,
