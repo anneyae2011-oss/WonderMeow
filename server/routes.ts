@@ -5,9 +5,9 @@ import { randomUUID } from "crypto";
 import { createRequire } from "module";
 const require = createRequire(import.meta.url);
 import cors from "cors";
-import { storage } from "./storage";
-import { providerAuthStorage } from "./provider-auth-storage";
-import { hashPassword, comparePasswords } from "./auth";
+import { storage } from "./storage.js";
+import { providerAuthStorage } from "./provider-auth-storage.js";
+import { hashPassword, comparePasswords } from "./auth.js";
 import {
   insertProviderSchema,
   insertApiKeySchema,

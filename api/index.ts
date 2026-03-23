@@ -1,9 +1,9 @@
 import "dotenv/config";
 import express, { type Request, Response, NextFunction } from "express";
-import { registerRoutes } from "../server/routes";
-import { setupVite, serveStatic, log } from "../server/vite";
-import { storage, initStorage } from "../server/storage";
-import { hashPassword } from "../server/auth";
+import { registerRoutes } from "../server/routes.js";
+import { setupVite, serveStatic, log } from "../server/vite.js";
+import { storage, initStorage } from "../server/storage.js";
+import { hashPassword } from "../server/auth.js";
 import { createRequire } from "module";
 const require = createRequire(import.meta.url);
 

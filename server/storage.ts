@@ -89,10 +89,10 @@ export let storage: IStorage;
 
 export async function initStorage() {
   if (process.env.DATABASE_URL) {
-    const { PostgresStorage } = await import('./postgres-storage');
+    const { PostgresStorage } = await import('./postgres-storage.js');
     storage = new PostgresStorage();
   } else {
-    const { SQLiteStorage } = await import('./sqlite-storage');
+    const { SQLiteStorage } = await import('./sqlite-storage.js');
     // @ts-ignore
     const DatabaseClass = (await import('better-sqlite3')).default;
     storage = new SQLiteStorage(DatabaseClass);
