@@ -5,10 +5,10 @@ import { randomUUID } from "crypto";
 import cors from "cors";
 import session from "express-session";
 import MemoryStoreFactory from "memorystore";
-import { getStorage } from "./getStorage().js";
+import { getStorage } from "./storage.js";
 
 import { hashPassword, comparePasswords } from "./auth.js";
-import { providerAuthStorage } from "./provider-auth-getStorage().js";
+import { providerAuthStorage } from "./provider-auth-storage.js";
 import {
   insertProviderSchema,
   insertApiKeySchema,
