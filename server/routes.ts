@@ -7,10 +7,8 @@ import session from "express-session";
 import MemoryStoreFactory from "memorystore";
 import { getStorage } from "./storage.js";
 
-// No risky top-level code here. Everything moved inside registerRoutes or helpers.
 import { hashPassword, comparePasswords } from "./auth.js";
 import { providerAuthStorage } from "./provider-auth-storage.js";
-import { hashPassword, comparePasswords } from "./auth.js";
 import {
   insertProviderSchema,
   insertApiKeySchema,
@@ -502,7 +500,7 @@ async function _registerRoutes(app: Express): Promise<Server> {
 
   // Get stats (public)
   app.get("/api/stats", async (req: Request, res: Response) => {
-    const stats = await storage.getStats();
+    const stats = await getStorage().getStats();
     res.json(stats);
   });
 
@@ -2251,7 +2249,7 @@ async function _registerRoutes(app: Express): Promise<Server> {
       }
 
       // Track request
-      await storage.incrementActiveRequests();
+      await getStorage().incrementActiveRequests();
       await storage.updateApiKeyUsage(apiKey.id);
 
       // Proxy request to provider with all parameters (temperature, max_tokens, top_p, etc.)
@@ -2277,7 +2275,7 @@ async function _registerRoutes(app: Express): Promise<Server> {
         } catch (e) {
           // Ignore if we can't read the error body
         }
-        await storage.decrementActiveRequests();
+        await getStorage().decrementActiveRequests();
         // Return generic error message to avoid leaking provider sensitive info like base URL or even token
         return safeSendError(response.status, "Provider failed to generate response");
       }
@@ -2294,7 +2292,7 @@ async function _registerRoutes(app: Express): Promise<Server> {
         res.setHeader('Connection', 'keep-alive');
 
         if (!response.body) {
-          await storage.decrementActiveRequests();
+          await getStorage().decrementActiveRequests();
           return safeSendError(500, "No response body from provider");
         }
 
@@ -2460,7 +2458,7 @@ async function _registerRoutes(app: Express): Promise<Server> {
           // Log completed request
           console.log(`[${requestId}] Request from ${userToken.name} finished. Output: ${outputTokens} tokens, Total: ${totalTokens} tokens.`);
 
-          await storage.decrementActiveRequests();
+          await getStorage().decrementActiveRequests();
           console.log(`[DEBUG] Ending streaming response, headersSent: ${res.headersSent}, hasToolCalls: ${hasToolCalls}`);
 
           // CRITICAL FIX: ALWAYS call res.end() for streaming responses to prevent hanging
