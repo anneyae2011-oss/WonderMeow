@@ -2,8 +2,6 @@ import type { Express, Request, Response } from "express";
 import { createServer, type Server } from "http";
 import { WebSocketServer, WebSocket } from "ws";
 import { randomUUID } from "crypto";
-import { createRequire } from "module";
-const require = createRequire(import.meta.url);
 import cors from "cors";
 import { storage } from "./storage.js";
 import { providerAuthStorage } from "./provider-auth-storage.js";
@@ -319,15 +317,24 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   // Session configuration
   let sessionStore: any;
-  if (process.env.VERCEL || !process.env.SESSION_SECRET) {
+  if (process.env.VERCEL || !process.env.DATABASE_URL) {
+    console.log("[SESSION] Using MemoryStore (Vercel/Local-No-DB)");
     sessionStore = new MemoryStore({ checkPeriod: 86400000 });
   } else {
-    const connectSqlite3 = require("connect-sqlite3");
-    const SQLiteStore = connectSqlite3(session);
-    sessionStore = new SQLiteStore({
-      db: 'sessions.sqlite',
-      dir: './'
-    });
+    try {
+      // Use string to hide from Vercel bundler NFT
+      const storeName = "connect-pg-simple";
+      const pgStore = await import(storeName);
+      const PostgresStore = pgStore.default(session);
+      sessionStore = new PostgresStore({
+        conString: process.env.DATABASE_URL,
+        tableName: 'session'
+      });
+      console.log("[SESSION] Using PostgresStore");
+    } catch (err) {
+      console.error("[SESSION] Failed to load PostgresStore, falling back to MemoryStore", err);
+      sessionStore = new MemoryStore({ checkPeriod: 86400000 });
+    }
   }
 
   app.use(session({

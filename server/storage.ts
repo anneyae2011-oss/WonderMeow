@@ -98,9 +98,11 @@ export async function initStorage() {
   } else {
     try {
       console.log("[STORAGE] Initializing SQLiteStorage (Local/Development)");
-      const { SQLiteStorage } = await import('./sqlite-storage.js');
+      const sqliteModule = './sqlite-storage.js';
+      const betterPkg = 'better-sqlite3';
+      const { SQLiteStorage } = await import(sqliteModule);
       // @ts-ignore
-      const { default: DatabaseClass } = await import('better-sqlite3');
+      const { default: DatabaseClass } = await import(betterPkg);
       storage = new SQLiteStorage(DatabaseClass);
     } catch (err) {
       console.error("[STORAGE] SQLite initialization failed (normal on Vercel without DATABASE_URL):", err);
