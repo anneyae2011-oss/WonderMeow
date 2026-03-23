@@ -1,7 +1,7 @@
 import { drizzle } from 'drizzle-orm/neon-serverless';
 import { neon, neonConfig } from '@neondatabase/serverless';
-import * as schema from '@shared/schema';
-import { IStorage } from './storage';
+import * as schema from '../shared/schema.js';
+import { IStorage } from './storage.js';
 import { eq, and, asc, desc, sql, gte } from 'drizzle-orm';
 import { randomUUID } from 'crypto';
 

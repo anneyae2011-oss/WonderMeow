@@ -21,7 +21,8 @@ export class ProviderAuthStorage {
   private async ensureDb() {
     if (this.db) return;
     try {
-      const { default: Database } = await import("better-sqlite3");
+      const betterPkg = "better-sqlite3";
+      const { default: Database } = await import(betterPkg);
       this.db = new Database(this.dbPath);
       this.initializeDatabase();
     } catch (err) {
