@@ -7,38 +7,8 @@ import session from "express-session";
 import MemoryStoreFactory from "memorystore";
 import { getStorage } from "./storage.js";
 
-// Use a Proxy to lazily access storage and ensure it's initialized
-const storage: any = new Proxy({}, {
-  get(_target, prop) {
-    if (typeof prop === 'symbol') return undefined; // Protect against Symbol access before init
-    try {
-      const s = getStorage();
-      if (!s) return undefined;
-      const val = (s as any)[prop];
-      return typeof val === 'function' ? val.bind(s) : val;
-    } catch (e) {
-      // If storage isn't ready yet, return undefined or a dummy for common properties
-      return undefined;
-    }
-  }
-});
-
-// Handle ESM/CJS compatibility for session
-const sessionFunc = (session && (session as any).default) ? (session as any).default : session;
-let MemoryStore: any;
-try {
-  if (typeof MemoryStoreFactory === 'function') {
-    MemoryStore = MemoryStoreFactory(sessionFunc);
-  } else if (MemoryStoreFactory && typeof (MemoryStoreFactory as any).default === 'function') {
-    MemoryStore = (MemoryStoreFactory as any).default(sessionFunc);
-  } else {
-    console.warn("[AUTH] MemoryStoreFactory is not a function, trying fallback load...");
-    MemoryStore = (MemoryStoreFactory as any)(sessionFunc); 
-  }
-} catch (e: any) {
-  console.error("[AUTH] FAILED to initialize MemoryStore:", e.message);
-  // Last resort fallback
-}
+// No risky top-level code here. Everything moved inside registerRoutes or helpers.
+import { hashPassword, comparePasswords } from "./auth.js";
 import { providerAuthStorage } from "./provider-auth-storage.js";
 import { hashPassword, comparePasswords } from "./auth.js";
 import {
