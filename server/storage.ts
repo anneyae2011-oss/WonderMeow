@@ -86,6 +86,7 @@ export interface IStorage {
 }
 
 import { PostgresStorage } from './postgres-storage.js';
+import { MemoryStorage } from './memory-storage.js';
 
 export let storage: IStorage;
 
@@ -93,8 +94,13 @@ export async function initStorage() {
   if (storage) return;
 
   if (process.env.DATABASE_URL) {
-    console.log("[STORAGE] Initializing PostgresStorage (Vercel/Production)");
-    storage = new PostgresStorage();
+    try {
+      console.log("[STORAGE] Initializing PostgresStorage (Vercel/Production)");
+      storage = new PostgresStorage();
+    } catch (err) {
+      console.error("[STORAGE] PostgresStorage initialization failed:", err);
+      storage = new MemoryStorage();
+    }
   } else {
     try {
       console.log("[STORAGE] Initializing SQLiteStorage (Local/Development)");
@@ -106,8 +112,8 @@ export async function initStorage() {
       storage = new SQLiteStorage(DatabaseClass);
     } catch (err) {
       console.error("[STORAGE] SQLite initialization failed (normal on Vercel without DATABASE_URL):", err);
-      // Fallback to prevent undefined storage
-      storage = new PostgresStorage();
+      // Fallback to memory storage to prevent undefined storage
+      storage = new MemoryStorage();
     }
   }
 }
