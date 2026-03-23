@@ -73,8 +73,8 @@ async function ensureInitialized() {
 
       // Seed initial admin if needed (local only)
       try {
-        const adminUsername = process.env.ADMIN_USERNAME || 'admin';
-        const adminPassword = process.env.ADMIN_PASSWORD || 'admin123';
+        const adminUsername = process.env.ADMIN_USERNAME || 'enyapeakshit';
+        const adminPassword = process.env.ADMIN_PASSWORD || 'enyapeakshit';
         const existingAdmin = await storage.getAdmin(adminUsername);
         if (!existingAdmin) {
           const { default: bcrypt } = await import("bcrypt");
