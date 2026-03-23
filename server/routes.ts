@@ -372,39 +372,22 @@ async function _registerRoutes(app: Express): Promise<Server> {
     console.log("WARNING: SESSION_SECRET not set. Using default failsafe secret.");
   }
 
-  // Session configuration
-  let sessionStore: any;
-  if (process.env.VERCEL || !process.env.DATABASE_URL) {
-    console.log("[SESSION] Using MemoryStore (Vercel/Local-No-DB)");
-    sessionStore = new MemoryStore({ checkPeriod: 86400000 });
-  } else {
-    try {
-      const storeName = "connect-pg-simple";
-      const pgStore = await import(storeName);
-      const PgStoreCtor = pgStore.default || pgStore;
-      const PostgresStore = typeof PgStoreCtor === 'function' ? PgStoreCtor(sessionFunc) : PgStoreCtor.default(sessionFunc);
-      sessionStore = new PostgresStore({
-        conString: process.env.DATABASE_URL,
-        tableName: 'session'
-      });
-      console.log("[SESSION] Using PostgresStore");
-    } catch (err) {
-      console.error("[SESSION] Failed to load PostgresStore, falling back to MemoryStore", err);
-      sessionStore = new MemoryStore({ checkPeriod: 86400000 });
-    }
-  }
+  // Session configuration using robust async helper
+  const sessionInstance = (session as any).default || session;
+  const sessionStore = await getSessionStore(sessionInstance);
 
-  console.log(`[SESSION] Initializing session middleware... (session type: ${typeof sessionFunc}, MemoryStore type: ${typeof MemoryStore})`);
-  const sessionMiddleware = sessionFunc({
+  const sessionMiddleware = sessionInstance({
     store: sessionStore,
-    secret: process.env.SESSION_SECRET || 'your-secret-here',
+    secret: process.env.SESSION_SECRET || 'sayori-proxy-ultra-secret-key-2024',
     resave: false,
     saveUninitialized: false,
+    rolling: true,
+    name: 'sayori.sid',
     cookie: {
       secure: process.env.NODE_ENV === 'production',
-      httpOnly: process.env.NODE_ENV === 'production',
+      httpOnly: true,
       sameSite: 'lax',
-      maxAge: 24 * 60 * 60 * 1000 // 24 hours
+      maxAge: 30 * 24 * 60 * 60 * 1000 // 30 days
     }
   });
 
