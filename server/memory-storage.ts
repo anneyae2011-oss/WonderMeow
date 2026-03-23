@@ -1,4 +1,4 @@
-import { IStorage } from "./storage.js";
+import { IStorage } from "./types.js";
 import * as schema from "../shared/schema.js";
 import { randomUUID } from "crypto";
 
