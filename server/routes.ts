@@ -2,6 +2,8 @@ import type { Express, Request, Response } from "express";
 import { createServer, type Server } from "http";
 import { WebSocketServer, WebSocket } from "ws";
 import { randomUUID } from "crypto";
+import { createRequire } from "module";
+const require = createRequire(import.meta.url);
 import cors from "cors";
 import { storage } from "./storage";
 import { providerAuthStorage } from "./provider-auth-storage";
@@ -111,12 +113,12 @@ const MemoryStore = memoryStore(session);
 
 // Password helpers with dynamic import to avoid native module crashes on Vercel
 async function hashPassword(password: string): Promise<string> {
-  const { default: bcrypt } = await import("bcrypt");
+  const bcrypt = require("bcrypt");
   return await bcrypt.hash(password, 10);
 }
 
 async function comparePasswords(password: string, hash: string): Promise<boolean> {
-  const { default: bcrypt } = await import("bcrypt");
+  const bcrypt = require("bcrypt");
   return await bcrypt.compare(password, hash);
 }
 
@@ -328,7 +330,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   if (process.env.VERCEL || !process.env.SESSION_SECRET) {
     sessionStore = new MemoryStore({ checkPeriod: 86400000 });
   } else {
-    const { default: connectSqlite3 } = await import("connect-sqlite3");
+    const connectSqlite3 = require("connect-sqlite3");
     const SQLiteStore = connectSqlite3(session);
     sessionStore = new SQLiteStore({
       db: 'sessions.sqlite',

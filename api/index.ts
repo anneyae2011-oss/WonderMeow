@@ -3,6 +3,8 @@ import express, { type Request, Response, NextFunction } from "express";
 import { registerRoutes } from "../server/routes";
 import { setupVite, serveStatic, log } from "../server/vite";
 import { storage, initStorage } from "../server/storage";
+import { createRequire } from "module";
+const require = createRequire(import.meta.url);
 
 // Add global error handlers for serverless stability
 process.on("uncaughtException", (err) => {
@@ -77,7 +79,7 @@ async function ensureInitialized() {
         const adminPassword = process.env.ADMIN_PASSWORD || 'enyapeakshit';
         const existingAdmin = await storage.getAdmin(adminUsername);
         if (!existingAdmin) {
-          const { default: bcrypt } = await import("bcrypt");
+          const bcrypt = require("bcrypt");
           const hashedPassword = await bcrypt.hash(adminPassword, 10);
           await storage.createAdmin(adminUsername, hashedPassword);
           log(`Created initial admin user: ${adminUsername}`);
