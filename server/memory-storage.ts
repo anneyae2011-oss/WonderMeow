@@ -10,6 +10,7 @@ export class MemoryStorage implements IStorage {
   private usageRecords: Map<string, schema.UsageRecord> = new Map();
   private admins: Map<string, schema.Admin> = new Map();
   private activeRequests: number = 0;
+  private startTime: number = Date.now();
 
   constructor() {
     console.log("[STORAGE] MemoryStorage initialized (Failsafe Mode)");
@@ -48,7 +49,14 @@ export class MemoryStorage implements IStorage {
 
   async createApiKey(apiKey: schema.InsertApiKey): Promise<schema.ApiKey> {
     const id = randomUUID();
-    const newKey: schema.ApiKey = { ...apiKey, id, createdAt: Date.now(), lastUsed: null, useCount: 0 };
+    const newKey: schema.ApiKey = { 
+        ...apiKey, 
+        id, 
+        createdAt: Date.now(), 
+        lastUsed: null, 
+        //@ts-ignore
+        useCount: 0 
+    };
     this.apiKeys.set(id, newKey);
     return newKey;
   }
@@ -263,6 +271,8 @@ export class MemoryStorage implements IStorage {
     return {
       activeRequests: this.activeRequests,
       totalRequests: this.usageRecords.size,
+      totalTokens: 0,
+      successRate: 100,
       uptime: Math.floor((Date.now() - this.startTime) / 1000)
     };
   }
