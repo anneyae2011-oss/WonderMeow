@@ -1,9 +1,9 @@
 import "dotenv/config";
 import express, { type Request, Response, NextFunction } from "express";
 import { registerRoutes } from "../server/routes.js";
-import { setupVite, serveStatic, log } from "../server/vite.js";
 import { storage, initStorage } from "../server/storage.js";
 import { hashPassword } from "../server/auth.js";
+import { log } from "../server/log.js";
 
 // Add global error handlers for serverless stability
 process.on("uncaughtException", (err) => {
@@ -99,8 +99,10 @@ async function ensureInitialized() {
       });
 
       if (app.get("env") === "development") {
+        const { setupVite } = await import("./vite.js");
         await setupVite(app, server);
       } else {
+        const { serveStatic } = await import("./vite.js");
         serveStatic(app);
       }
 
