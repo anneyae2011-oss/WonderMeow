@@ -7,6 +7,7 @@ const require = createRequire(import.meta.url);
 import cors from "cors";
 import { storage } from "./storage";
 import { providerAuthStorage } from "./provider-auth-storage";
+import { hashPassword, comparePasswords } from "./auth";
 import {
   insertProviderSchema,
   insertApiKeySchema,
@@ -111,16 +112,7 @@ import memoryStore from "memorystore";
 
 const MemoryStore = memoryStore(session);
 
-// Password helpers with dynamic import to avoid native module crashes on Vercel
-async function hashPassword(password: string): Promise<string> {
-  const bcrypt = require("bcrypt");
-  return await bcrypt.hash(password, 10);
-}
-
-async function comparePasswords(password: string, hash: string): Promise<boolean> {
-  const bcrypt = require("bcrypt");
-  return await bcrypt.compare(password, hash);
-}
+// Admin authentication helpers using native crypto
 
 // Middleware for admin authentication
 function adminAuth(req: Request, res: Response, next: Function) {

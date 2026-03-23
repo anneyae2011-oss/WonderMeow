@@ -509,6 +509,14 @@ export class PostgresStorage implements IStorage {
     return newAdmin;
   }
 
+  async updateAdmin(username: string, passwordHash: string): Promise<schema.Admin | undefined> {
+    const [updated] = await this.db.update(schema.admins)
+      .set({ password: passwordHash })
+      .where(eq(schema.admins.username, username))
+      .returning();
+    return updated;
+  }
+
   // Auth methods
   async getAuthMode(): Promise<"user_tokens" | "general_password" | "no_auth"> {
     const rows = await this.db.select({ value: schema.systemConfig.value })

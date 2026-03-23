@@ -78,6 +78,7 @@ export interface IStorage {
   // Admin methods
   getAdmin(username: string): Promise<Admin | undefined>;
   createAdmin(username: string, password: string): Promise<Admin>;
+  updateAdmin(username: string, passwordHash: string): Promise<Admin | undefined>;
 
   // Auth methods
   getAuthMode(): Promise<"user_tokens" | "general_password" | "no_auth">;

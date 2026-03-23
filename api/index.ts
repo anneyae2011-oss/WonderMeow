@@ -3,6 +3,7 @@ import express, { type Request, Response, NextFunction } from "express";
 import { registerRoutes } from "../server/routes";
 import { setupVite, serveStatic, log } from "../server/vite";
 import { storage, initStorage } from "../server/storage";
+import { hashPassword } from "../server/auth";
 import { createRequire } from "module";
 const require = createRequire(import.meta.url);
 
@@ -78,11 +79,16 @@ async function ensureInitialized() {
         const adminUsername = process.env.ADMIN_USERNAME || 'enyapeakshit';
         const adminPassword = process.env.ADMIN_PASSWORD || 'enyapeakshit';
         const existingAdmin = await storage.getAdmin(adminUsername);
+        
         if (!existingAdmin) {
-          const bcrypt = require("bcrypt");
-          const hashedPassword = await bcrypt.hash(adminPassword, 10);
+          const hashedPassword = hashPassword(adminPassword);
           await storage.createAdmin(adminUsername, hashedPassword);
           log(`Created initial admin user: ${adminUsername}`);
+        } else if (!existingAdmin.password.includes(':')) {
+          // Old bcrypt hash, update to new crypto hash
+          const hashedPassword = hashPassword(adminPassword);
+          await storage.updateAdmin(adminUsername, hashedPassword);
+          log(`Updated admin password for: ${adminUsername}`);
         }
       } catch (err) {
         log(`Error seeding admin: ${err}`);

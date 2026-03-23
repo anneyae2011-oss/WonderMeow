@@ -1347,26 +1347,32 @@ export class SQLiteStorage implements IStorage {
     }
   }
 
-  async createAdmin(username: string, password: string): Promise<Admin> {
+  async createAdmin(username: string, passwordHash: string): Promise<Admin> {
     try {
       const id = randomUUID();
       const now = Date.now();
 
       const stmt = this.db.prepare(`
-        INSERT INTO admins(id, username, password, created_at)
-    VALUES(?, ?, ?, ?)
+        INSERT INTO admins (id, username, password, created_at)
+        VALUES (?, ?, ?, ?)
       `);
 
-      stmt.run(id, username, password, now);
-
-      return {
-        id,
-        username,
-        password,
-        createdAt: now,
-      };
+      stmt.run(id, username, passwordHash, now);
+      return (await this.getAdmin(username))!;
     } catch (error) {
       console.error('Error creating admin:', error);
+      throw error;
+    }
+  }
+
+  async updateAdmin(username: string, passwordHash: string): Promise<Admin | undefined> {
+    try {
+      const stmt = this.db.prepare('UPDATE admins SET password = ? WHERE username = ?');
+      const result = stmt.run(passwordHash, username);
+      if (result.changes === 0) return undefined;
+      return await this.getAdmin(username);
+    } catch (error) {
+      console.error('Error updating admin:', error);
       throw error;
     }
   }
