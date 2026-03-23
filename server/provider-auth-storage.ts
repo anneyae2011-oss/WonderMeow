@@ -9,26 +9,19 @@ export interface ProviderAccount {
   createdAt: number;
 }
 
-export class ProviderAuthStorage {
-  private db: any | null = null;
-
-  constructor(dbPath?: string) {
-    this.dbPath = dbPath || path.join(process.cwd(), "providers.db");
-  }
-
-  private dbPath: string;
+  private memoryStore: Map<string, any> = new Map();
+  private useMemory: boolean = false;
 
   private async ensureDb() {
-    if (this.db) return;
+    if (this.db || this.useMemory) return;
     try {
-      const betterPkg = "better-sqlite3";
-      const { default: Database } = await import(betterPkg);
+      console.log("ProviderAuthStorage: Attempting to load better-sqlite3...");
+      const { default: Database } = await import("better-sqlite3");
       this.db = new Database(this.dbPath);
       this.initializeDatabase();
-    } catch (err) {
-      console.error("ProviderAuthStorage: Failed to load better-sqlite3. Disabling provider auth storage.", err);
-      // In a real serverless env, we might want a mock here.
-      throw new Error("Provider storage unavailable");
+    } catch (err: any) {
+      console.warn("ProviderAuthStorage: better-sqlite3 unavailable, falling back to Memory:", err.message);
+      this.useMemory = true;
     }
   }
 
@@ -59,6 +52,9 @@ export class ProviderAuthStorage {
 
   async getProviderByUsername(username: string): Promise<ProviderAccount | undefined> {
     await this.ensureDb();
+    if (this.useMemory) {
+      return Array.from(this.memoryStore.values()).find(p => p.username === username);
+    }
     const row = this.db.prepare("SELECT * FROM provider_accounts WHERE username = ?").get(username);
     return row ? this.rowToProvider(row) : undefined;
   }
@@ -71,6 +67,9 @@ export class ProviderAuthStorage {
 
   async getProviderBySessionToken(sessionToken: string): Promise<ProviderAccount | undefined> {
     await this.ensureDb();
+    if (this.useMemory) {
+      return Array.from(this.memoryStore.values()).find(p => p.sessionToken === sessionToken);
+    }
     const row = this.db.prepare("SELECT * FROM provider_accounts WHERE session_token = ?").get(sessionToken);
     return row ? this.rowToProvider(row) : undefined;
   }
@@ -85,17 +84,19 @@ export class ProviderAuthStorage {
     await this.ensureDb();
     const id = randomUUID();
     const createdAt = Date.now();
+    const account: ProviderAccount = { id, username, password: passwordHash, createdAt };
+    
+    if (this.useMemory) {
+      this.memoryStore.set(id, account);
+      return account;
+    }
+
     const stmt = this.db.prepare(`
       INSERT INTO provider_accounts (id, username, password, created_at)
       VALUES (?, ?, ?, ?)
     `);
     stmt.run(id, username, passwordHash, createdAt);
-    return {
-      id,
-      username,
-      password: passwordHash,
-      createdAt,
-    };
+    return account;
   }
 
   async updateProviderAccount(id: string, updates: { username?: string; passwordHash?: string; clearSession?: boolean }): Promise<ProviderAccount | undefined> {

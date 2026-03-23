@@ -5,10 +5,10 @@ import { randomUUID } from "crypto";
 import cors from "cors";
 import session from "express-session";
 import MemoryStoreFactory from "memorystore";
-import { getStorage } from "./storage.js";
+import { getStorage } from "./getStorage().js";
 
 import { hashPassword, comparePasswords } from "./auth.js";
-import { providerAuthStorage } from "./provider-auth-storage.js";
+import { providerAuthStorage } from "./provider-auth-getStorage().js";
 import {
   insertProviderSchema,
   insertApiKeySchema,
@@ -143,7 +143,7 @@ function providerAuth(req: Request, res: Response, next: Function) {
     return res.status(401).json({ error: "Unauthorized" });
   }
 
-  providerAuthStorage.getProviderBySessionToken(sessionToken)
+  providerAuthgetStorage().getProviderBySessionToken(sessionToken)
     .then(providerAccount => {
       if (!providerAccount) {
         return res.status(401).json({ error: "Unauthorized" });
@@ -165,14 +165,14 @@ async function userTokenAuth(req: Request, res: Response, next: Function) {
     return res.status(401).json({ error: "No token provided" });
   }
 
-  const userToken = await storage.getUserToken(token);
+  const userToken = await getStorage().getUserToken(token);
   if (!userToken) {
     return res.status(401).json({ error: "Invalid token" });
   }
 
   // Check rate limits
-  const todayUsage = await storage.getTodayUsageCount(userToken.id);
-  const minuteUsage = await storage.getMinuteUsageCount(userToken.id);
+  const todayUsage = await getStorage().getTodayUsageCount(userToken.id);
+  const minuteUsage = await getStorage().getMinuteUsageCount(userToken.id);
 
   if (todayUsage >= userToken.maxRPD) {
     return res.status(429).json({ error: "Daily request limit exceeded" });
@@ -188,7 +188,7 @@ async function userTokenAuth(req: Request, res: Response, next: Function) {
 
 // Flexible authentication middleware based on AUTH_MODE
 async function flexibleAuth(req: Request, res: Response, next: Function) {
-  const authMode = await storage.getAuthMode();
+  const authMode = await getStorage().getAuthMode();
 
   if (authMode === "no_auth") {
     // No authentication required
@@ -199,7 +199,7 @@ async function flexibleAuth(req: Request, res: Response, next: Function) {
   if (authMode === "general_password") {
     // General password authentication
     const token = req.headers.authorization?.replace("Bearer ", "");
-    const generalPassword = await storage.getGeneralPassword();
+    const generalPassword = await getStorage().getGeneralPassword();
 
     if (!token || token !== generalPassword) {
       return res.status(401).json({ error: "Invalid password" });
@@ -221,7 +221,7 @@ async function resolveTokenAllowedProviders(userToken: any): Promise<string[]> {
 
   if (userToken.createdByProviderId) {
     const storage = getStorage();
-    const providers = await storage.getProviders();
+    const providers = await getStorage().getProviders();
     return providers
       .filter((provider) => provider.ownerId === userToken.createdByProviderId)
       .map((provider) => provider.id);
@@ -235,12 +235,12 @@ const MODEL_SYNC_TIMEOUT_MS = 10_000;
 const PROVIDER_MAX_RPM = 500;
 
 async function syncProviderModels(providerId: string) {
-  const provider = await storage.getProvider(providerId);
+  const provider = await getStorage().getProvider(providerId);
   if (!provider) {
     throw new Error("Provider not found");
   }
 
-  const apiKey = await storage.getNextApiKey(provider.id);
+  const apiKey = await getStorage().getNextApiKey(provider.id);
   if (!apiKey) {
     throw new Error("No API keys configured");
   }
@@ -296,7 +296,7 @@ async function syncProviderModels(providerId: string) {
   }
 
   const sortedModelIds = uniqueModelIds.sort((a, b) => a.toLowerCase().localeCompare(b.toLowerCase()));
-  const models = await storage.replaceProviderModels(provider.id, sortedModelIds);
+  const models = await getStorage().replaceProviderModels(provider.id, sortedModelIds);
 
   return { models, count: models.length };
 }
@@ -409,7 +409,7 @@ async function _registerRoutes(app: Express): Promise<Server> {
     }
 
     try {
-      const admin = await storage.getAdmin(username);
+      const admin = await getStorage().getAdmin(username);
       if (!admin) {
         console.log(`[AUTH] Admin not found: ${username}`);
         return res.status(401).json({ message: "Invalid credentials" });
@@ -464,7 +464,7 @@ async function _registerRoutes(app: Express): Promise<Server> {
     const { username, password } = req.body;
 
     try {
-      const providerAccount = await providerAuthStorage.getProviderByUsername(username);
+      const providerAccount = await providerAuthgetStorage().getProviderByUsername(username);
       if (!providerAccount) {
         return res.status(401).json({ error: "Invalid credentials" });
       }
@@ -475,7 +475,7 @@ async function _registerRoutes(app: Express): Promise<Server> {
       }
 
       const sessionToken = randomUUID();
-      await providerAuthStorage.setProviderSession(providerAccount.id, sessionToken);
+      await providerAuthgetStorage().setProviderSession(providerAccount.id, sessionToken);
 
       res.cookie(PROVIDER_SESSION_COOKIE, sessionToken, {
         secure: process.env.NODE_ENV === "production",
@@ -493,7 +493,7 @@ async function _registerRoutes(app: Express): Promise<Server> {
 
   app.post("/api/providers/logout", providerAuth, async (req: Request, res: Response) => {
     const providerAccount = (req as any).providerAccount;
-    providerAuthStorage.clearProviderSession(providerAccount.id);
+    providerAuthgetStorage().clearProviderSession(providerAccount.id);
     res.clearCookie(PROVIDER_SESSION_COOKIE);
     res.json({ success: true });
   });
@@ -506,12 +506,12 @@ async function _registerRoutes(app: Express): Promise<Server> {
 
   // Get all providers with models (public, only enabled)
   app.get("/api/providers/public", async (req: Request, res: Response) => {
-    const providers = await storage.getProviders();
+    const providers = await getStorage().getProviders();
     const enabledProviders = providers.filter((p) => p.enabled);
 
     const providersWithModels = await Promise.all(
       enabledProviders.map(async (provider) => {
-        const models = await storage.getModels(provider.id);
+        const models = await getStorage().getModels(provider.id);
         const enabledModels = models.filter((m) => m.enabled);
         return {
           ...provider,
@@ -527,20 +527,20 @@ async function _registerRoutes(app: Express): Promise<Server> {
   // User token stats
   app.post("/api/token/stats", tokenStatsRateLimit, async (req: Request, res: Response) => {
     const { token } = req.body;
-    const userToken = await storage.getUserToken(token);
+    const userToken = await getStorage().getUserToken(token);
 
     if (!userToken) {
       return res.status(404).json({ error: "Token not found" });
     }
 
-    const usageRecords = await storage.getUsageRecords(userToken.id);
-    const todayUsage = await storage.getTodayUsageCount(userToken.id);
+    const usageRecords = await getStorage().getUsageRecords(userToken.id);
+    const todayUsage = await getStorage().getTodayUsageCount(userToken.id);
 
     // Calculate model usage with display names
     const modelUsage: Record<string, number> = {};
 
     // Get all models to create a mapping from model UUID to display name
-    const allModels = await storage.getModels();
+    const allModels = await getStorage().getModels();
     const modelMap = allModels.reduce((acc, model) => {
       acc[model.id] = model.modelId; // Map UUID to display name - WARNING! THIS IS A ONE TIME RUN FFS
       return acc;
@@ -587,13 +587,13 @@ async function _registerRoutes(app: Express): Promise<Server> {
       return res.status(400).json({ error: "Name cannot be greater than 50 characters" });
     }
 
-    const userToken = await storage.getUserToken(token);
+    const userToken = await getStorage().getUserToken(token);
     if (!userToken) {
       return res.status(404).json({ error: "Token not found" });
     }
 
     try {
-      const updatedToken = await storage.updateUserToken(userToken.id, { name });
+      const updatedToken = await getStorage().updateUserToken(userToken.id, { name });
       if (updatedToken)
         res.json({ success: true, name: updatedToken.name });
     } catch (error: any) {
@@ -609,17 +609,17 @@ async function _registerRoutes(app: Express): Promise<Server> {
       return res.status(400).json({ error: "Token is required" });
     }
 
-    const userToken = await storage.getUserToken(token);
+    const userToken = await getStorage().getUserToken(token);
     if (!userToken) {
       return res.status(404).json({ error: "Token not found" });
     }
 
     try {
       // Get all usage records for this token
-      const usageRecords = await storage.getUsageRecords(userToken.id);
+      const usageRecords = await getStorage().getUsageRecords(userToken.id);
 
       // Get today's usage
-      const todayUsage = await storage.getTodayUsageCount(userToken.id);
+      const todayUsage = await getStorage().getTodayUsageCount(userToken.id);
 
       // Calculate remaining quota
       const remainingRPD = Number((userToken.maxRPD - todayUsage).toFixed(2));
@@ -633,7 +633,7 @@ async function _registerRoutes(app: Express): Promise<Server> {
       const modelUsage: Record<string, { count: number; totalTokens: number; totalCost: number }> = {};
 
       // Get all models to create a mapping from model UUID to display name
-      const allModels = await storage.getModels();
+      const allModels = await getStorage().getModels();
       const modelMap = allModels.reduce((acc, model) => {
         acc[model.id] = model.modelId; // Map UUID to display name
         return acc;
@@ -661,7 +661,7 @@ async function _registerRoutes(app: Express): Promise<Server> {
       });
 
       // Get provider names
-      const providers = await storage.getProviders();
+      const providers = await getStorage().getProviders();
       const providerMap = providers.reduce((acc, p) => {
         acc[p.id] = p.name;
         return acc;
@@ -722,10 +722,10 @@ async function _registerRoutes(app: Express): Promise<Server> {
         .filter(Boolean);
 
       // Get sub-keys for this token
-      const subKeys = await storage.getSubKeys(userToken.id);
+      const subKeys = await getStorage().getSubKeys(userToken.id);
       const subKeysWithUsage = await Promise.all(
         subKeys.map(async (subKey) => {
-          const subKeyUsage = await storage.getTodayUsageCount(subKey.id);
+          const subKeyUsage = await getStorage().getTodayUsageCount(subKey.id);
           const subKeyProviderIds = subKey.allowedProviders || [];
           const subKeyProviderNames = subKeyProviderIds.map(id => providerMap[id] || id);
 
@@ -748,7 +748,7 @@ async function _registerRoutes(app: Express): Promise<Server> {
       );
 
       // Get allocated quota info
-      const allocatedQuota = await storage.getTotalAllocatedQuota(userToken.id);
+      const allocatedQuota = await getStorage().getTotalAllocatedQuota(userToken.id);
 
       res.json({
         // Token details
@@ -817,7 +817,7 @@ async function _registerRoutes(app: Express): Promise<Server> {
       return res.status(400).json({ error: "Name has to be valid and below 50 characters!" });
     }
 
-    const parentToken = await storage.getUserToken(token);
+    const parentToken = await getStorage().getUserToken(token);
     if (!parentToken) {
       return res.status(404).json({ error: "Parent token not found" });
     }
@@ -826,7 +826,7 @@ async function _registerRoutes(app: Express): Promise<Server> {
     const numericRPD = typeof maxRPD === 'string' ? parseFloat(maxRPD) : maxRPD;
     const numericRPM = typeof maxRPM === 'string' ? parseFloat(maxRPM) : maxRPM;
 
-    const validation = await storage.canCreateSubKey(parentToken.id, numericRPD, numericRPM);
+    const validation = await getStorage().canCreateSubKey(parentToken.id, numericRPD, numericRPM);
     if (!validation.valid) {
       return res.status(400).json({ error: validation.reason });
     }
@@ -837,7 +837,7 @@ async function _registerRoutes(app: Express): Promise<Server> {
     }
 
     try {
-      const subKey = await storage.createUserToken({
+      const subKey = await getStorage().createUserToken({
         name,
         maxRPD: numericRPD,
         maxRPM: numericRPM,
@@ -861,12 +861,12 @@ async function _registerRoutes(app: Express): Promise<Server> {
       return res.status(400).json({ error: "Parent token is required" });
     }
 
-    const parentToken = await storage.getUserToken(token);
+    const parentToken = await getStorage().getUserToken(token);
     if (!parentToken) {
       return res.status(404).json({ error: "Parent token not found" });
     }
 
-    const subKey = await storage.getUserTokenById(req.params.id);
+    const subKey = await getStorage().getUserTokenById(req.params.id);
     if (!subKey) {
       return res.status(404).json({ error: "Sub-key not found" });
     }
@@ -878,9 +878,9 @@ async function _registerRoutes(app: Express): Promise<Server> {
 
     try {
       // Cascade delete sub-keys
-      const deletedCount = await storage.cascadeDeleteSubKeys(subKey.id);
+      const deletedCount = await getStorage().cascadeDeleteSubKeys(subKey.id);
       // Delete the sub-key itself
-      await storage.deleteUserToken(subKey.id);
+      await getStorage().deleteUserToken(subKey.id);
 
       res.json({ success: true, deletedCount: deletedCount + 1 });
     } catch (error: any) {
@@ -896,12 +896,12 @@ async function _registerRoutes(app: Express): Promise<Server> {
       return res.status(400).json({ error: "Parent token is required" });
     }
 
-    const parentToken = await storage.getUserToken(token);
+    const parentToken = await getStorage().getUserToken(token);
     if (!parentToken) {
       return res.status(404).json({ error: "Parent token not found" });
     }
 
-    const subKey = await storage.getUserTokenById(req.params.id);
+    const subKey = await getStorage().getUserTokenById(req.params.id);
     if (!subKey) {
       return res.status(404).json({ error: "Sub-key not found" });
     }
@@ -913,9 +913,9 @@ async function _registerRoutes(app: Express): Promise<Server> {
 
     try {
       // Disable the sub-key
-      await storage.updateUserToken(subKey.id, { enabled: false });
+      await getStorage().updateUserToken(subKey.id, { enabled: false });
       // Cascade disable all children
-      const disabledCount = await storage.cascadeDisableSubKeys(subKey.id);
+      const disabledCount = await getStorage().cascadeDisableSubKeys(subKey.id);
 
       res.json({ success: true, disabledCount: disabledCount + 1 });
     } catch (error: any) {
@@ -931,12 +931,12 @@ async function _registerRoutes(app: Express): Promise<Server> {
       return res.status(400).json({ error: "Parent token is required" });
     }
 
-    const parentToken = await storage.getUserToken(token);
+    const parentToken = await getStorage().getUserToken(token);
     if (!parentToken) {
       return res.status(404).json({ error: "Parent token not found" });
     }
 
-    const subKey = await storage.getUserTokenById(req.params.id);
+    const subKey = await getStorage().getUserTokenById(req.params.id);
     if (!subKey) {
       return res.status(404).json({ error: "Sub-key not found" });
     }
@@ -953,9 +953,9 @@ async function _registerRoutes(app: Express): Promise<Server> {
 
     try {
       // Enable the sub-key
-      await storage.updateUserToken(subKey.id, { enabled: true });
+      await getStorage().updateUserToken(subKey.id, { enabled: true });
       // Cascade enable all non-expired children
-      const enabledCount = await storage.cascadeEnableSubKeys(subKey.id);
+      const enabledCount = await getStorage().cascadeEnableSubKeys(subKey.id);
 
       res.json({ success: true, enabledCount: enabledCount + 1 });
     } catch (error: any) {
@@ -964,7 +964,7 @@ async function _registerRoutes(app: Express): Promise<Server> {
   });
 
   const getOwnedProviders = async (providerAccountId: string) => {
-    const providers = await storage.getProviders();
+    const providers = await getStorage().getProviders();
     return providers.filter((provider) => provider.ownerId === providerAccountId);
   };
 
@@ -976,7 +976,7 @@ async function _registerRoutes(app: Express): Promise<Server> {
   const findOwnedApiKey = async (providerAccountId: string, keyId: string) => {
     const ownedProviders = await getOwnedProviders(providerAccountId);
     for (const provider of ownedProviders) {
-      const keys = await storage.getApiKeys(provider.id);
+      const keys = await getStorage().getApiKeys(provider.id);
       const match = keys.find((key) => key.id === keyId);
       if (match) {
         return { provider, key: match };
@@ -988,7 +988,7 @@ async function _registerRoutes(app: Express): Promise<Server> {
   const findOwnedModel = async (providerAccountId: string, modelId: string) => {
     const ownedProviders = await getOwnedProviders(providerAccountId);
     for (const provider of ownedProviders) {
-      const models = await storage.getModels(provider.id);
+      const models = await getStorage().getModels(provider.id);
       const match = models.find((model) => model.id === modelId);
       if (match) {
         return { provider, model: match };
@@ -1003,8 +1003,8 @@ async function _registerRoutes(app: Express): Promise<Server> {
     const providers = await getOwnedProviders(providerAccount.id);
     const providersWithCounts = await Promise.all(
       providers.map(async (provider) => {
-        const keys = await storage.getApiKeys(provider.id);
-        const models = await storage.getModels(provider.id);
+        const keys = await getStorage().getApiKeys(provider.id);
+        const models = await getStorage().getModels(provider.id);
         return {
           ...provider,
           keysCount: keys.length,
@@ -1021,12 +1021,12 @@ async function _registerRoutes(app: Express): Promise<Server> {
       console.log("Creating provider. Body:", JSON.stringify(req.body));
       const data = insertProviderSchema.parse(req.body);
 
-      const existingProviders = await storage.getProviders();
+      const existingProviders = await getStorage().getProviders();
       if (existingProviders.some(p => p.name.toLowerCase() === data.name.toLowerCase())) {
         return res.status(400).json({ error: "A provider with this name already exists" });
       }
 
-      const provider = await storage.createProvider({ ...data, ownerId: providerAccount.id });
+      const provider = await getStorage().createProvider({ ...data, ownerId: providerAccount.id });
       res.json(provider);
     } catch (error: any) {
       res.status(400).json({ error: error.message });
@@ -1036,7 +1036,7 @@ async function _registerRoutes(app: Express): Promise<Server> {
   app.patch("/api/providers/:id", providerAuth, async (req: Request, res: Response) => {
     const providerAccount = (req as any).providerAccount;
     try {
-      const existingProvider = await storage.getProvider(req.params.id);
+      const existingProvider = await getStorage().getProvider(req.params.id);
       if (!existingProvider) {
         return res.status(404).json({ error: "Provider not found" });
       }
@@ -1045,14 +1045,14 @@ async function _registerRoutes(app: Express): Promise<Server> {
       }
 
       if (req.body.name) {
-        const existingProviders = await storage.getProviders();
+        const existingProviders = await getStorage().getProviders();
         if (existingProviders.some(p => p.id !== req.params.id && p.name.toLowerCase() === req.body.name.toLowerCase())) {
           return res.status(400).json({ error: "A provider with this name already exists" });
         }
       }
 
       const { name, baseUrl, enabled, customHeaders, disableCacheDiscount } = req.body;
-      const provider = await storage.updateProvider(req.params.id, {
+      const provider = await getStorage().updateProvider(req.params.id, {
         name,
         baseUrl,
         enabled,
@@ -1070,34 +1070,34 @@ async function _registerRoutes(app: Express): Promise<Server> {
 
   app.delete("/api/providers/:id", providerAuth, async (req: Request, res: Response) => {
     const providerAccount = (req as any).providerAccount;
-    const provider = await storage.getProvider(req.params.id);
+    const provider = await getStorage().getProvider(req.params.id);
     if (!provider) {
       return res.status(404).json({ error: "Provider not found" });
     }
     if (provider.ownerId !== providerAccount.id) {
       return res.status(403).json({ error: "Unauthorized" });
     }
-    const success = await storage.deleteProvider(req.params.id);
+    const success = await getStorage().deleteProvider(req.params.id);
     res.json({ success });
   });
 
   // Provider API Keys
   app.get("/api/providers/:id/keys", providerAuth, async (req: Request, res: Response) => {
     const providerAccount = (req as any).providerAccount;
-    const provider = await storage.getProvider(req.params.id);
+    const provider = await getStorage().getProvider(req.params.id);
     if (!provider) {
       return res.status(404).json({ error: "Provider not found" });
     }
     if (provider.ownerId !== providerAccount.id) {
       return res.status(403).json({ error: "Unauthorized" });
     }
-    const keys = await storage.getApiKeys(req.params.id);
+    const keys = await getStorage().getApiKeys(req.params.id);
     res.json(keys);
   });
 
   app.post("/api/providers/:id/keys", providerAuth, async (req: Request, res: Response) => {
     const providerAccount = (req as any).providerAccount;
-    const provider = await storage.getProvider(req.params.id);
+    const provider = await getStorage().getProvider(req.params.id);
     if (!provider) {
       return res.status(404).json({ error: "Provider not found" });
     }
@@ -1110,7 +1110,7 @@ async function _registerRoutes(app: Express): Promise<Server> {
         ...req.body,
         providerId: req.params.id,
       });
-      const key = await storage.createApiKey(data);
+      const key = await getStorage().createApiKey(data);
 
       let modelSync: { success: boolean; count?: number; error?: string } | undefined;
       try {
@@ -1133,7 +1133,7 @@ async function _registerRoutes(app: Express): Promise<Server> {
     if (!ownedKey) {
       return res.status(404).json({ error: "API key not found" });
     }
-    const success = await storage.deleteApiKey(req.params.id);
+    const success = await getStorage().deleteApiKey(req.params.id);
     res.json({ success });
   });
 
@@ -1147,7 +1147,7 @@ async function _registerRoutes(app: Express): Promise<Server> {
     if (!ownedKey) {
       return res.status(404).json({ error: "API key not found" });
     }
-    const apiKey = await storage.updateApiKey(req.params.id, key);
+    const apiKey = await getStorage().updateApiKey(req.params.id, key);
     if (!apiKey) {
       return res.status(404).json({ error: "API key not found" });
     }
@@ -1157,20 +1157,20 @@ async function _registerRoutes(app: Express): Promise<Server> {
   // Provider Models
   app.get("/api/providers/:id/models", providerAuth, async (req: Request, res: Response) => {
     const providerAccount = (req as any).providerAccount;
-    const provider = await storage.getProvider(req.params.id);
+    const provider = await getStorage().getProvider(req.params.id);
     if (!provider) {
       return res.status(404).json({ error: "Provider not found" });
     }
     if (provider.ownerId !== providerAccount.id) {
       return res.status(403).json({ error: "Unauthorized" });
     }
-    const models = await storage.getModels(req.params.id);
+    const models = await getStorage().getModels(req.params.id);
     res.json(models);
   });
 
   app.post("/api/providers/:id/check-models", providerAuth, async (req: Request, res: Response) => {
     const providerAccount = (req as any).providerAccount;
-    const provider = await storage.getProvider(req.params.id);
+    const provider = await getStorage().getProvider(req.params.id);
     if (!provider) {
       return res.status(404).json({ error: "Provider not found" });
     }
@@ -1196,7 +1196,7 @@ async function _registerRoutes(app: Express): Promise<Server> {
     if (!ownedModel) {
       return res.status(404).json({ error: "Model not found" });
     }
-    const model = await storage.updateModel(req.params.id, req.body);
+    const model = await getStorage().updateModel(req.params.id, req.body);
     if (!model) {
       return res.status(404).json({ error: "Model not found" });
     }
@@ -1209,13 +1209,13 @@ async function _registerRoutes(app: Express): Promise<Server> {
     if (!ownedModel) {
       return res.status(404).json({ error: "Model not found" });
     }
-    const success = await storage.deleteModel(req.params.id);
+    const success = await getStorage().deleteModel(req.params.id);
     res.json({ success });
   });
 
   app.post("/api/providers/:id/models/update-cost-all", providerAuth, async (req: Request, res: Response) => {
     const providerAccount = (req as any).providerAccount;
-    const provider = await storage.getProvider(req.params.id);
+    const provider = await getStorage().getProvider(req.params.id);
     if (!provider) {
       return res.status(404).json({ error: "Provider not found" });
     }
@@ -1228,7 +1228,7 @@ async function _registerRoutes(app: Express): Promise<Server> {
       if (!requestCost || requestCost < 1) {
         return res.status(400).json({ error: "Invalid request cost" });
       }
-      const models = await storage.updateCostAllModelsByProvider(req.params.id, parseInt(requestCost));
+      const models = await getStorage().updateCostAllModelsByProvider(req.params.id, parseInt(requestCost));
       res.json({ success: true, count: models.length });
     } catch (error: any) {
       res.status(500).json({ error: error.message });
@@ -1237,7 +1237,7 @@ async function _registerRoutes(app: Express): Promise<Server> {
 
   app.patch("/api/providers/:id/models/bulk", providerAuth, async (req: Request, res: Response) => {
     const providerAccount = (req as any).providerAccount;
-    const provider = await storage.getProvider(req.params.id);
+    const provider = await getStorage().getProvider(req.params.id);
     if (!provider) {
       return res.status(404).json({ error: "Provider not found" });
     }
@@ -1289,15 +1289,15 @@ async function _registerRoutes(app: Express): Promise<Server> {
         }
       }
 
-      const providerModels = await storage.getModels(req.params.id);
+      const providerModels = await getStorage().getModels(req.params.id);
       const providerModelIds = new Set(providerModels.map((model) => model.id));
       const invalidModelIds = updates.filter((update) => !providerModelIds.has(update.id));
       if (invalidModelIds.length > 0) {
         return res.status(403).json({ error: "One or more models are not owned by this provider" });
       }
 
-      const updatedModels = await storage.bulkUpdateModelsByIds(updates);
-      const allModels = await storage.getModels(req.params.id);
+      const updatedModels = await getStorage().bulkUpdateModelsByIds(updates);
+      const allModels = await getStorage().getModels(req.params.id);
 
       res.json({
         success: true,
@@ -1312,11 +1312,11 @@ async function _registerRoutes(app: Express): Promise<Server> {
   // Provider user tokens
   app.get("/api/providers/tokens", providerAuth, async (req: Request, res: Response) => {
     const providerAccount = (req as any).providerAccount;
-    const tokens = await storage.getUserTokens();
+    const tokens = await getStorage().getUserTokens();
     const ownedTokens = tokens.filter((token) => token.createdByProviderId === providerAccount.id);
     const tokensWithUsage = await Promise.all(
       ownedTokens.map(async (token) => {
-        const todayUsage = await storage.getTodayUsageCount(token.id);
+        const todayUsage = await getStorage().getTodayUsageCount(token.id);
         return {
           ...token,
           usedRPD: todayUsage,
@@ -1349,7 +1349,7 @@ async function _registerRoutes(app: Express): Promise<Server> {
         allowedProviders = ownedProviderIds;
       }
 
-      const token = await storage.createUserToken({
+      const token = await getStorage().createUserToken({
         ...data,
         keyType: "master",
         allowedProviders,
@@ -1364,7 +1364,7 @@ async function _registerRoutes(app: Express): Promise<Server> {
   app.patch("/api/providers/tokens/:id", providerAuth, async (req: Request, res: Response) => {
     const providerAccount = (req as any).providerAccount;
     try {
-      const token = await storage.getUserTokenById(req.params.id);
+      const token = await getStorage().getUserTokenById(req.params.id);
       if (!token || token.createdByProviderId !== providerAccount.id) {
         return res.status(404).json({ error: "Token not found" });
       }
@@ -1397,7 +1397,7 @@ async function _registerRoutes(app: Express): Promise<Server> {
         maxSubKeys: req.body.maxSubKeys,
       };
 
-      const updatedToken = await storage.updateUserToken(req.params.id, updateData);
+      const updatedToken = await getStorage().updateUserToken(req.params.id, updateData);
       if (!updatedToken) {
         return res.status(404).json({ error: "Token not found" });
       }
@@ -1409,23 +1409,23 @@ async function _registerRoutes(app: Express): Promise<Server> {
 
   app.delete("/api/providers/tokens/:id", providerAuth, async (req: Request, res: Response) => {
     const providerAccount = (req as any).providerAccount;
-    const token = await storage.getUserTokenById(req.params.id);
+    const token = await getStorage().getUserTokenById(req.params.id);
     if (!token || token.createdByProviderId !== providerAccount.id) {
       return res.status(404).json({ error: "Token not found" });
     }
-    const success = await storage.deleteUserToken(req.params.id);
+    const success = await getStorage().deleteUserToken(req.params.id);
     res.json({ success });
   });
 
   app.post("/api/providers/tokens/:id/regenerate", providerAuth, async (req: Request, res: Response) => {
     const providerAccount = (req as any).providerAccount;
-    const token = await storage.getUserTokenById(req.params.id);
+    const token = await getStorage().getUserTokenById(req.params.id);
     if (!token || token.createdByProviderId !== providerAccount.id) {
       return res.status(404).json({ error: "Token not found" });
     }
 
     try {
-      const updatedToken = await storage.regenerateUserToken(req.params.id);
+      const updatedToken = await getStorage().regenerateUserToken(req.params.id);
       if (!updatedToken) {
         return res.status(404).json({ error: "Token not found" });
       }
@@ -1443,7 +1443,7 @@ async function _registerRoutes(app: Express): Promise<Server> {
       return res.status(400).json({ error: "Name has to be valid and below 50 characters!" });
     }
 
-    const parentToken = await storage.getUserTokenById(req.params.id);
+    const parentToken = await getStorage().getUserTokenById(req.params.id);
     if (!parentToken || parentToken.createdByProviderId !== providerAccount.id) {
       return res.status(404).json({ error: "Parent token not found" });
     }
@@ -1455,7 +1455,7 @@ async function _registerRoutes(app: Express): Promise<Server> {
       return res.status(400).json({ error: `Max RPM cannot exceed ${PROVIDER_MAX_RPM}` });
     }
 
-    const validation = await storage.canCreateSubKey(parentToken.id, numericRPD, numericRPM);
+    const validation = await getStorage().canCreateSubKey(parentToken.id, numericRPD, numericRPM);
     if (!validation.valid) {
       return res.status(400).json({ error: validation.reason });
     }
@@ -1479,7 +1479,7 @@ async function _registerRoutes(app: Express): Promise<Server> {
     }
 
     try {
-      const subKey = await storage.createUserToken({
+      const subKey = await getStorage().createUserToken({
         name,
         maxRPD: numericRPD,
         maxRPM: numericRPM,
@@ -1498,14 +1498,14 @@ async function _registerRoutes(app: Express): Promise<Server> {
 
   app.delete("/api/providers/sub-keys/:id", providerAuth, async (req: Request, res: Response) => {
     const providerAccount = (req as any).providerAccount;
-    const subKey = await storage.getUserTokenById(req.params.id);
+    const subKey = await getStorage().getUserTokenById(req.params.id);
     if (!subKey || subKey.createdByProviderId !== providerAccount.id) {
       return res.status(404).json({ error: "Sub-key not found" });
     }
 
     try {
-      const deletedCount = await storage.cascadeDeleteSubKeys(subKey.id);
-      await storage.deleteUserToken(subKey.id);
+      const deletedCount = await getStorage().cascadeDeleteSubKeys(subKey.id);
+      await getStorage().deleteUserToken(subKey.id);
       res.json({ success: true, deletedCount: deletedCount + 1 });
     } catch (error: any) {
       res.status(500).json({ error: error.message });
@@ -1514,14 +1514,14 @@ async function _registerRoutes(app: Express): Promise<Server> {
 
   app.post("/api/providers/sub-keys/:id/disable", providerAuth, async (req: Request, res: Response) => {
     const providerAccount = (req as any).providerAccount;
-    const subKey = await storage.getUserTokenById(req.params.id);
+    const subKey = await getStorage().getUserTokenById(req.params.id);
     if (!subKey || subKey.createdByProviderId !== providerAccount.id) {
       return res.status(404).json({ error: "Sub-key not found" });
     }
 
     try {
-      await storage.updateUserToken(subKey.id, { enabled: false });
-      const disabledCount = await storage.cascadeDisableSubKeys(subKey.id);
+      await getStorage().updateUserToken(subKey.id, { enabled: false });
+      const disabledCount = await getStorage().cascadeDisableSubKeys(subKey.id);
       res.json({ success: true, disabledCount: disabledCount + 1 });
     } catch (error: any) {
       res.status(500).json({ error: error.message });
@@ -1530,7 +1530,7 @@ async function _registerRoutes(app: Express): Promise<Server> {
 
   app.post("/api/providers/sub-keys/:id/enable", providerAuth, async (req: Request, res: Response) => {
     const providerAccount = (req as any).providerAccount;
-    const subKey = await storage.getUserTokenById(req.params.id);
+    const subKey = await getStorage().getUserTokenById(req.params.id);
     if (!subKey || subKey.createdByProviderId !== providerAccount.id) {
       return res.status(404).json({ error: "Sub-key not found" });
     }
@@ -1540,8 +1540,8 @@ async function _registerRoutes(app: Express): Promise<Server> {
     }
 
     try {
-      await storage.updateUserToken(subKey.id, { enabled: true });
-      const enabledCount = await storage.cascadeEnableSubKeys(subKey.id);
+      await getStorage().updateUserToken(subKey.id, { enabled: true });
+      const enabledCount = await getStorage().cascadeEnableSubKeys(subKey.id);
       res.json({ success: true, enabledCount: enabledCount + 1 });
     } catch (error: any) {
       res.status(500).json({ error: error.message });
@@ -1552,7 +1552,7 @@ async function _registerRoutes(app: Express): Promise<Server> {
 
   // Provider accounts
   app.get("/api/admin/provider-accounts", adminAuth, async (req: Request, res: Response) => {
-    const rawAccounts = await providerAuthStorage.getProviderAccounts();
+    const rawAccounts = await providerAuthgetStorage().getProviderAccounts();
     const accounts = rawAccounts.map((account) => ({
       id: account.id,
       username: account.username,
@@ -1575,13 +1575,13 @@ async function _registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ error: "Username is required" });
       }
 
-      const existing = await providerAuthStorage.getProviderByUsername(normalizedUsername);
+      const existing = await providerAuthgetStorage().getProviderByUsername(normalizedUsername);
       if (existing) {
         return res.status(400).json({ error: "A provider account with this username already exists" });
       }
 
       const hashedPassword = await hashPassword(password);
-      const account = await providerAuthStorage.createProviderAccount(normalizedUsername, hashedPassword);
+      const account = await providerAuthgetStorage().createProviderAccount(normalizedUsername, hashedPassword);
       res.json({
         id: account.id,
         username: account.username,
@@ -1597,7 +1597,7 @@ async function _registerRoutes(app: Express): Promise<Server> {
     const { username, password, clearSession } = req.body;
 
     try {
-      const existing = await providerAuthStorage.getProviderById(req.params.id);
+      const existing = await providerAuthgetStorage().getProviderById(req.params.id);
       if (!existing) {
         return res.status(404).json({ error: "Provider account not found" });
       }
@@ -1609,7 +1609,7 @@ async function _registerRoutes(app: Express): Promise<Server> {
           return res.status(400).json({ error: "Username is required" });
         }
         if (normalizedUsername !== existing.username) {
-          const conflict = await providerAuthStorage.getProviderByUsername(normalizedUsername);
+          const conflict = await providerAuthgetStorage().getProviderByUsername(normalizedUsername);
           if (conflict && conflict.id !== existing.id) {
             return res.status(400).json({ error: "A provider account with this username already exists" });
           }
@@ -1626,7 +1626,7 @@ async function _registerRoutes(app: Express): Promise<Server> {
         passwordHash = hashPassword(normalizedPassword);
       }
 
-      const updated = await providerAuthStorage.updateProviderAccount(req.params.id, {
+      const updated = await providerAuthgetStorage().updateProviderAccount(req.params.id, {
         username: updatedUsername,
         passwordHash,
         clearSession: Boolean(clearSession),
@@ -1648,29 +1648,29 @@ async function _registerRoutes(app: Express): Promise<Server> {
   });
 
   app.delete("/api/admin/provider-accounts/:id", adminAuth, async (req: Request, res: Response) => {
-    const existing = await providerAuthStorage.getProviderById(req.params.id);
+    const existing = await providerAuthgetStorage().getProviderById(req.params.id);
     if (!existing) {
       return res.status(404).json({ error: "Provider account not found" });
     }
 
-    const providers = await storage.getProviders();
+    const providers = await getStorage().getProviders();
     const ownsProviders = providers.some((provider) => provider.ownerId === existing.id);
     if (ownsProviders) {
       return res.status(400).json({ error: "Cannot delete account that owns providers" });
     }
 
-    const success = await providerAuthStorage.deleteProviderAccount(req.params.id);
+    const success = await providerAuthgetStorage().deleteProviderAccount(req.params.id);
     res.json({ success });
   });
 
   // Providers
   app.get("/api/admin/providers", adminAuth, async (req: Request, res: Response) => {
-    const providers = await storage.getProviders();
+    const providers = await getStorage().getProviders();
     const providersWithCounts = await Promise.all(
       providers.map(async (provider) => {
-        const keys = await storage.getApiKeys(provider.id);
-        const models = await storage.getModels(provider.id);
-        const owner = provider.ownerId ? await providerAuthStorage.getProviderById(provider.ownerId) : undefined;
+        const keys = await getStorage().getApiKeys(provider.id);
+        const models = await getStorage().getModels(provider.id);
+        const owner = provider.ownerId ? await providerAuthgetStorage().getProviderById(provider.ownerId) : undefined;
         return {
           ...provider,
           keysCount: keys.length,
@@ -1689,7 +1689,7 @@ async function _registerRoutes(app: Express): Promise<Server> {
       return res.status(400).json({ error: "Username is required" });
     }
 
-    const provider = await storage.getProvider(req.params.id);
+    const provider = await getStorage().getProvider(req.params.id);
     if (!provider) {
       return res.status(404).json({ error: "Provider not found" });
     }
@@ -1699,20 +1699,20 @@ async function _registerRoutes(app: Express): Promise<Server> {
       return res.status(400).json({ error: "Username is required" });
     }
 
-    const account = await providerAuthStorage.getProviderByUsername(normalizedUsername);
+    const account = await providerAuthgetStorage().getProviderByUsername(normalizedUsername);
     if (!account) {
       return res.status(404).json({ error: "Provider account not found" });
     }
 
     const previousOwnerId = provider.ownerId;
-    const updatedProvider = await storage.updateProvider(req.params.id, { ownerId: account.id });
+    const updatedProvider = await getStorage().updateProvider(req.params.id, { ownerId: account.id });
     if (!updatedProvider) {
       return res.status(404).json({ error: "Provider not found" });
     }
 
     let deletedTokens = 0;
     if (previousOwnerId !== account.id) {
-      const tokens = await storage.getUserTokens();
+      const tokens = await getStorage().getUserTokens();
       const tokensToDelete = tokens.filter((token) => {
         const allowed = token.allowedProviders;
         if (!allowed || allowed.length === 0) {
@@ -1722,7 +1722,7 @@ async function _registerRoutes(app: Express): Promise<Server> {
       });
 
       for (const token of tokensToDelete) {
-        const deleted = await storage.deleteUserToken(token.id);
+        const deleted = await getStorage().deleteUserToken(token.id);
         if (deleted) {
           deletedTokens++;
         }
@@ -1745,12 +1745,12 @@ async function _registerRoutes(app: Express): Promise<Server> {
       const data = insertProviderSchema.parse(req.body);
 
       // Check for duplicate provider name
-      const existingProviders = await storage.getProviders();
+      const existingProviders = await getStorage().getProviders();
       if (existingProviders.some(p => p.name.toLowerCase() === data.name.toLowerCase())) {
         return res.status(400).json({ error: "A provider with this name already exists" });
       }
 
-      const provider = await storage.createProvider(data);
+      const provider = await getStorage().createProvider(data);
 
       // Skip auto-sync at creation time because providers normally have no keys yet.
       res.json(provider);
@@ -1763,13 +1763,13 @@ async function _registerRoutes(app: Express): Promise<Server> {
     try {
       // Check for duplicate provider name if name is being updated
       if (req.body.name) {
-        const existingProviders = await storage.getProviders();
+        const existingProviders = await getStorage().getProviders();
         if (existingProviders.some(p => p.id !== req.params.id && p.name.toLowerCase() === req.body.name.toLowerCase())) {
           return res.status(400).json({ error: "A provider with this name already exists" });
         }
       }
 
-      const provider = await storage.updateProvider(req.params.id, req.body);
+      const provider = await getStorage().updateProvider(req.params.id, req.body);
       if (!provider) {
         return res.status(404).json({ error: "Provider not found" });
       }
@@ -1780,13 +1780,13 @@ async function _registerRoutes(app: Express): Promise<Server> {
   });
 
   app.delete("/api/admin/providers/:id", adminAuth, async (req: Request, res: Response) => {
-    const success = await storage.deleteProvider(req.params.id);
+    const success = await getStorage().deleteProvider(req.params.id);
     res.json({ success });
   });
 
   // API Keys
   app.get("/api/admin/providers/:id/keys", adminAuth, async (req: Request, res: Response) => {
-    const keys = await storage.getApiKeys(req.params.id);
+    const keys = await getStorage().getApiKeys(req.params.id);
     res.json(keys);
   });
 
@@ -1796,7 +1796,7 @@ async function _registerRoutes(app: Express): Promise<Server> {
         ...req.body,
         providerId: req.params.id,
       });
-      const key = await storage.createApiKey(data);
+      const key = await getStorage().createApiKey(data);
 
       // Auto-sync models now that we have at least one key
       let modelSync: { success: boolean; count?: number; error?: string } | undefined;
@@ -1815,7 +1815,7 @@ async function _registerRoutes(app: Express): Promise<Server> {
   });
 
   app.delete("/api/admin/keys/:id", adminAuth, async (req: Request, res: Response) => {
-    const success = await storage.deleteApiKey(req.params.id);
+    const success = await getStorage().deleteApiKey(req.params.id);
     res.json({ success });
   });
 
@@ -1824,7 +1824,7 @@ async function _registerRoutes(app: Express): Promise<Server> {
     if (!key) {
       return res.status(400).json({ error: "Key is required" });
     }
-    const apiKey = await storage.updateApiKey(req.params.id, key);
+    const apiKey = await getStorage().updateApiKey(req.params.id, key);
     if (!apiKey) {
       return res.status(404).json({ error: "API key not found" });
     }
@@ -1833,7 +1833,7 @@ async function _registerRoutes(app: Express): Promise<Server> {
 
   // Models
   app.get("/api/admin/providers/:id/models", adminAuth, async (req: Request, res: Response) => {
-    const models = await storage.getModels(req.params.id);
+    const models = await getStorage().getModels(req.params.id);
     res.json(models);
   });
 
@@ -1857,7 +1857,7 @@ async function _registerRoutes(app: Express): Promise<Server> {
   });
 
   app.patch("/api/admin/models/:id", adminAuth, async (req: Request, res: Response) => {
-    const model = await storage.updateModel(req.params.id, req.body);
+    const model = await getStorage().updateModel(req.params.id, req.body);
     if (!model) {
       return res.status(404).json({ error: "Model not found" });
     }
@@ -1865,7 +1865,7 @@ async function _registerRoutes(app: Express): Promise<Server> {
   });
 
   app.delete("/api/admin/models/:id", adminAuth, async (req: Request, res: Response) => {
-    const success = await storage.deleteModel(req.params.id);
+    const success = await getStorage().deleteModel(req.params.id);
     res.json({ success });
   });
 
@@ -1876,7 +1876,7 @@ async function _registerRoutes(app: Express): Promise<Server> {
       if (!requestCost || requestCost < 1) {
         return res.status(400).json({ error: "Invalid request cost" });
       }
-      const models = await storage.updateCostAllModelsByProvider(req.params.id, parseInt(requestCost));
+      const models = await getStorage().updateCostAllModelsByProvider(req.params.id, parseInt(requestCost));
       res.json({ success: true, count: models.length });
     } catch (error: any) {
       res.status(500).json({ error: error.message });
@@ -1931,10 +1931,10 @@ async function _registerRoutes(app: Express): Promise<Server> {
       }
 
       // Use the efficient bulk update method (single transaction)
-      const updatedModels = await storage.bulkUpdateModelsByIds(updates);
+      const updatedModels = await getStorage().bulkUpdateModelsByIds(updates);
 
       // Get all models for this provider to return
-      const allModels = await storage.getModels(req.params.id);
+      const allModels = await getStorage().getModels(req.params.id);
       
       res.json({
         success: true,
@@ -1948,10 +1948,10 @@ async function _registerRoutes(app: Express): Promise<Server> {
 
   // User Tokens
   app.get("/api/admin/tokens", adminAuth, async (req: Request, res: Response) => {
-    const tokens = await storage.getUserTokens();
+    const tokens = await getStorage().getUserTokens();
     const tokensWithUsage = await Promise.all(
       tokens.map(async (token) => {
-        const todayUsage = await storage.getTodayUsageCount(token.id);
+        const todayUsage = await getStorage().getTodayUsageCount(token.id);
         return {
           ...token,
           usedRPD: todayUsage,
@@ -1964,7 +1964,7 @@ async function _registerRoutes(app: Express): Promise<Server> {
   app.post("/api/admin/tokens", adminAuth, async (req: Request, res: Response) => {
     try {
       const data = insertUserTokenSchema.parse(req.body);
-      const token = await storage.createUserToken(data);
+      const token = await getStorage().createUserToken(data);
       res.json(token);
     } catch (error: any) {
       res.status(400).json({ error: error.message });
@@ -1973,7 +1973,7 @@ async function _registerRoutes(app: Express): Promise<Server> {
 
   app.patch("/api/admin/tokens/:id", adminAuth, async (req: Request, res: Response) => {
     try {
-      const token = await storage.updateUserToken(req.params.id, req.body);
+      const token = await getStorage().updateUserToken(req.params.id, req.body);
       if (!token) {
         return res.status(404).json({ error: "Token not found" });
       }
@@ -1984,13 +1984,13 @@ async function _registerRoutes(app: Express): Promise<Server> {
   });
 
   app.delete("/api/admin/tokens/:id", adminAuth, async (req: Request, res: Response) => {
-    const success = await storage.deleteUserToken(req.params.id);
+    const success = await getStorage().deleteUserToken(req.params.id);
     res.json({ success });
   });
 
   app.post("/api/admin/tokens/:id/regenerate", adminAuth, async (req: Request, res: Response) => {
     try {
-      const token = await storage.regenerateUserToken(req.params.id);
+      const token = await getStorage().regenerateUserToken(req.params.id);
       if (!token) {
         return res.status(404).json({ error: "Token not found" });
       }
@@ -2025,7 +2025,7 @@ async function _registerRoutes(app: Express): Promise<Server> {
     const userToken = (req as any).userToken;
 
     // Get all enabled providers
-    const providers = await storage.getProviders();
+    const providers = await getStorage().getProviders();
     let enabledProviders = providers.filter((p) => p.enabled);
 
     // Filter providers based on user's allowed providers if specified
@@ -2038,7 +2038,7 @@ async function _registerRoutes(app: Express): Promise<Server> {
 
     const allModels = await Promise.all(
       enabledProviders.map(async (provider) => {
-        const models = await storage.getModels(provider.id);
+        const models = await getStorage().getModels(provider.id);
         return models
           .filter((m) => m.enabled)
           .map((m) => ({
@@ -2091,8 +2091,8 @@ async function _registerRoutes(app: Express): Promise<Server> {
       }
 
       // Find the model and provider
-      const allModels = await storage.getModels();
-      const providers = await storage.getProviders();
+      const allModels = await getStorage().getModels();
+      const providers = await getStorage().getProviders();
 
       // Try to match model in different formats
       let targetModel: any = null;
@@ -2113,7 +2113,7 @@ async function _registerRoutes(app: Express): Promise<Server> {
       if (!targetModel) {
         targetModel = allModels.find((m) => m.modelId === model);
         if (targetModel) {
-          provider = await storage.getProvider(targetModel.providerId);
+          provider = await getStorage().getProvider(targetModel.providerId);
         }
       }
 
@@ -2132,10 +2132,10 @@ async function _registerRoutes(app: Express): Promise<Server> {
       // Additional validation: Ensure the model and provider still exist in database
       // this prevents race conditions where records are deleted between lookup and usage
       try {
-        const modelExists = await storage.getModels(provider.id).then(models =>
+        const modelExists = await getStorage().getModels(provider.id).then(models =>
           models.some(m => m.id === targetModel.id)
         );
-        const providerExists = await storage.getProvider(provider.id);
+        const providerExists = await getStorage().getProvider(provider.id);
 
         if (!modelExists) {
           return safeSendError(404, `Model '${model}' no longer exists`);
@@ -2169,7 +2169,7 @@ async function _registerRoutes(app: Express): Promise<Server> {
 
       // For sub-keys, validate the entire ancestor chain
       if (userToken.keyType === "sub") {
-        const chainValidation = await storage.validateAncestorChain(userToken.id);
+        const chainValidation = await getStorage().validateAncestorChain(userToken.id);
         if (!chainValidation.valid) {
           return safeSendError(429, chainValidation.reason || "Token validation failed");
         }
@@ -2203,7 +2203,7 @@ async function _registerRoutes(app: Express): Promise<Server> {
       // Check if entire ancestor chain has enough quota for this request
       // For sub-keys, validate all ancestors; for master keys, just validate self
       if (userToken.keyType === "sub") {
-        const quotaValidation = await storage.validateAncestorChainQuota(userToken.id, requestCost);
+        const quotaValidation = await getStorage().validateAncestorChainQuota(userToken.id, requestCost);
         if (!quotaValidation.valid) {
           return safeSendError(429, JSON.stringify({
             error: quotaValidation.reason,
@@ -2215,7 +2215,7 @@ async function _registerRoutes(app: Express): Promise<Server> {
         }
       } else {
         // For master keys, check only this token
-        const todayUsage = await storage.getTodayUsageCount(userToken.id);
+        const todayUsage = await getStorage().getTodayUsageCount(userToken.id);
         const remainingQuota = Number((userToken.maxRPD - todayUsage).toFixed(2));
 
         if (remainingQuota < requestCost) {
@@ -2231,7 +2231,7 @@ async function _registerRoutes(app: Express): Promise<Server> {
         }
       }
 
-      const apiKey = await storage.getNextApiKey(provider.id);
+      const apiKey = await getStorage().getNextApiKey(provider.id);
       if (!apiKey) {
         return safeSendError(500, "No API keys available for this provider");
       }
@@ -2250,7 +2250,7 @@ async function _registerRoutes(app: Express): Promise<Server> {
 
       // Track request
       await getStorage().incrementActiveRequests();
-      await storage.updateApiKeyUsage(apiKey.id);
+      await getStorage().updateApiKeyUsage(apiKey.id);
 
       // Proxy request to provider with all parameters (temperature, max_tokens, top_p, etc.)
       const headers: Record<string, string> = {
@@ -2424,7 +2424,7 @@ async function _registerRoutes(app: Express): Promise<Server> {
           if (userToken.parentTokenId) {
             console.log(`[DEBUG] Creating usage record for chain - userToken.parentTokenId exists`);
             try {
-              await storage.createUsageRecordForChain(userToken.id, {
+              await getStorage().createUsageRecordForChain(userToken.id, {
                 modelId: targetModel.id,
                 providerId: provider.id,
                 tokens: totalTokens,
@@ -2440,7 +2440,7 @@ async function _registerRoutes(app: Express): Promise<Server> {
           } else {
             // For master keys, create a single usage record
             try {
-              await storage.createUsageRecord({
+              await getStorage().createUsageRecord({
                 userTokenId: userToken.id,
                 modelId: targetModel.id,
                 providerId: provider.id,
@@ -2516,7 +2516,7 @@ async function _registerRoutes(app: Express): Promise<Server> {
         if (userToken.keyType === "sub") {
           console.log(`[DEBUG] Creating usage record for chain - userToken.keyType === "sub"`);
           try {
-            await storage.createUsageRecordForChain(userToken.id, {
+            await getStorage().createUsageRecordForChain(userToken.id, {
               modelId: targetModel.id,
               providerId: provider.id,
               tokens,
@@ -2532,7 +2532,7 @@ async function _registerRoutes(app: Express): Promise<Server> {
         } else {
           // For master keys, create a single usage record
           try {
-            await storage.createUsageRecord({
+            await getStorage().createUsageRecord({
               userTokenId: userToken.id,
               modelId: targetModel.id,
               providerId: provider.id,
@@ -2550,7 +2550,7 @@ async function _registerRoutes(app: Express): Promise<Server> {
         // Log completed request
         console.log(`[${requestId}] Request from ${userToken.name} finished. Output: ${outputTokens} tokens, Total: ${tokens} tokens.`);
 
-        await storage.decrementActiveRequests();
+        await getStorage().decrementActiveRequests();
 
         if (!res.headersSent) {
           res.json(data);
@@ -2559,7 +2559,7 @@ async function _registerRoutes(app: Express): Promise<Server> {
     } catch (error: any) {
       console.error(`[ERROR] Request failed:`, error.message);
       console.error(`[ERROR] Error stack:`, error.stack);
-      await storage.decrementActiveRequests();
+      await getStorage().decrementActiveRequests();
       // Return generic error message to avoid leaking sensitive information
       safeSendError(500, "Provider failed to generate response");
     }
@@ -2573,7 +2573,7 @@ async function _registerRoutes(app: Express): Promise<Server> {
 
   wss.on("connection", (ws: WebSocket) => {
     const interval = setInterval(async () => {
-      const stats = await storage.getStats();
+      const stats = await getStorage().getStats();
       ws.send(JSON.stringify(stats));
     }, REFRESH_INTERVAL);
 
