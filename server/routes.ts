@@ -109,10 +109,6 @@ const userManageRateLimit = rateLimit({
 });
 
 
-import memoryStore from "memorystore";
-
-const MemoryStore = memoryStore(session);
-
 // Admin authentication helpers using native crypto
 
 // Middleware for admin authentication
