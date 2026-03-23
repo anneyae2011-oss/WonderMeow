@@ -52,14 +52,22 @@ import { checkStringValidity, countInputTokens, estimateTokens, getClientIP } fr
 
 // Robust session store factory helper
 async function getSessionStore(sessionInstance: any) {
+  // Defensive dynamic imports to prevent top-level crashes
+  let Store: any;
   if (process.env.VERCEL || !process.env.DATABASE_URL) {
-    console.log("[SESSION] Initializing MemoryStore");
-    const Store = (MemoryStoreFactory as any).default ? (MemoryStoreFactory as any).default(sessionInstance) : (typeof MemoryStoreFactory === 'function' ? MemoryStoreFactory(sessionInstance) : null);
-    if (!Store) throw new Error("Could not initialize MemoryStore factory");
+    console.log("[SESSION] Initializing MemoryStore factory...");
+    try {
+      const MemoryStoreFactoryMod = await import("memorystore");
+      const Factory = (MemoryStoreFactoryMod as any).default || MemoryStoreFactoryMod;
+      Store = Factory(sessionInstance);
+    } catch (e: any) {
+      console.error("[SESSION] MemoryStore import failed:", e.message);
+      throw new Error(`Failed to load session store: ${e.message}`);
+    }
     return new Store({ checkPeriod: 86400000 });
   }
 
-  console.log("[SESSION] Initializing PostgresStore");
+  console.log("[SESSION] Initializing PostgresStore...");
   try {
     const pgSimpleModule = await import('connect-pg-simple');
     const PgStoreFactoryFactory = pgSimpleModule.default || pgSimpleModule;
@@ -69,10 +77,16 @@ async function getSessionStore(sessionInstance: any) {
       tableName: 'session',
       createTableIfMissing: true
     });
-  } catch (e) {
-    console.warn("[SESSION] PostgresStore failed, falling back to MemoryStore:", e);
-    const Store = (MemoryStoreFactory as any).default ? (MemoryStoreFactory as any).default(sessionInstance) : (typeof MemoryStoreFactory === 'function' ? MemoryStoreFactory(sessionInstance) : null);
-    return new Store({ checkPeriod: 86400000 });
+  } catch (e: any) {
+    console.warn("[SESSION] PostgresStore failed, falling back to MemoryStore:", e.message);
+    try {
+      const MemoryStoreFactoryMod = await import("memorystore");
+      const Factory = (MemoryStoreFactoryMod as any).default || MemoryStoreFactoryMod;
+      Store = Factory(sessionInstance);
+      return new Store({ checkPeriod: 86400000 });
+    } catch (e2: any) {
+      throw new Error(`Fatal session failure: ${e2.message}`);
+    }
   }
 }
 
@@ -358,9 +372,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
 }
 
 async function _registerRoutes(app: Express): Promise<Server> {
-  // Behind a proxy/CDN (e.g., Cloudflare) we must trust the first hop so
-  // req.secure reflects the original HTTPS request and X-Forwarded-* works.
-  app.set("trust proxy", 1);
+  const storage = getStorage();
+  const sessionInstance = (session as any).default || session;
 
   // Enable CORS
   app.use(cors({
