@@ -18,7 +18,7 @@ export function Header({ hideProviderLogin = false }: HeaderProps) {
           className="flex items-center gap-2 bg-transparent border-none cursor-pointer p-0"
           data-testid="link-home"
         >
-          <img src="/assets/wondermeow_icon.png" alt="WonderMeow Icon" className="h-8 w-auto object-contain" />
+          <img src="/assets/wondermeow_icon.jpg" alt="WonderMeow Icon" className="h-8 w-auto object-contain" />
           <h1 className="font-script text-3xl text-primary">WonderMeow</h1>
         </button>
         

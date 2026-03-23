@@ -180,7 +180,7 @@ export default function Dashboard() {
       <div
         className="fixed inset-0 pointer-events-none"
         style={{
-          backgroundImage: 'url(/assets/wondermeow_bg.png)',
+          backgroundImage: 'url(/assets/wondermeow_bg.jpg)',
           backgroundSize: 'cover',
           backgroundPosition: 'center',
           backgroundRepeat: 'no-repeat',
