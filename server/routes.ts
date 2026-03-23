@@ -424,7 +424,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     const { username, password } = req.body;
 
     try {
-      const providerAccount = providerAuthStorage.getProviderByUsername(username);
+      const providerAccount = await providerAuthStorage.getProviderByUsername(username);
       if (!providerAccount) {
         return res.status(401).json({ error: "Invalid credentials" });
       }
@@ -435,7 +435,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
 
       const sessionToken = randomUUID();
-      providerAuthStorage.setProviderSession(providerAccount.id, sessionToken);
+      await providerAuthStorage.setProviderSession(providerAccount.id, sessionToken);
 
       res.cookie(PROVIDER_SESSION_COOKIE, sessionToken, {
         secure: process.env.NODE_ENV === "production",
@@ -1511,7 +1511,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   // Provider accounts
   app.get("/api/admin/provider-accounts", adminAuth, async (req: Request, res: Response) => {
-    const accounts = providerAuthStorage.getProviderAccounts().map((account) => ({
+    const rawAccounts = await providerAuthStorage.getProviderAccounts();
+    const accounts = rawAccounts.map((account) => ({
       id: account.id,
       username: account.username,
       createdAt: account.createdAt,
@@ -1533,13 +1534,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ error: "Username is required" });
       }
 
-      const existing = providerAuthStorage.getProviderByUsername(normalizedUsername);
+      const existing = await providerAuthStorage.getProviderByUsername(normalizedUsername);
       if (existing) {
         return res.status(400).json({ error: "A provider account with this username already exists" });
       }
 
       const hashedPassword = await hashPassword(password);
-      const account = providerAuthStorage.createProviderAccount(normalizedUsername, hashedPassword);
+      const account = await providerAuthStorage.createProviderAccount(normalizedUsername, hashedPassword);
       res.json({
         id: account.id,
         username: account.username,
@@ -1555,7 +1556,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     const { username, password, clearSession } = req.body;
 
     try {
-      const existing = providerAuthStorage.getProviderById(req.params.id);
+      const existing = await providerAuthStorage.getProviderById(req.params.id);
       if (!existing) {
         return res.status(404).json({ error: "Provider account not found" });
       }
@@ -1567,7 +1568,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           return res.status(400).json({ error: "Username is required" });
         }
         if (normalizedUsername !== existing.username) {
-          const conflict = providerAuthStorage.getProviderByUsername(normalizedUsername);
+          const conflict = await providerAuthStorage.getProviderByUsername(normalizedUsername);
           if (conflict && conflict.id !== existing.id) {
             return res.status(400).json({ error: "A provider account with this username already exists" });
           }
@@ -1584,7 +1585,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         passwordHash = hashPassword(normalizedPassword);
       }
 
-      const updated = providerAuthStorage.updateProviderAccount(req.params.id, {
+      const updated = await providerAuthStorage.updateProviderAccount(req.params.id, {
         username: updatedUsername,
         passwordHash,
         clearSession: Boolean(clearSession),
@@ -1606,7 +1607,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   app.delete("/api/admin/provider-accounts/:id", adminAuth, async (req: Request, res: Response) => {
-    const existing = providerAuthStorage.getProviderById(req.params.id);
+    const existing = await providerAuthStorage.getProviderById(req.params.id);
     if (!existing) {
       return res.status(404).json({ error: "Provider account not found" });
     }
@@ -1617,7 +1618,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       return res.status(400).json({ error: "Cannot delete account that owns providers" });
     }
 
-    const success = providerAuthStorage.deleteProviderAccount(req.params.id);
+    const success = await providerAuthStorage.deleteProviderAccount(req.params.id);
     res.json({ success });
   });
 
@@ -1628,7 +1629,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       providers.map(async (provider) => {
         const keys = await storage.getApiKeys(provider.id);
         const models = await storage.getModels(provider.id);
-        const owner = provider.ownerId ? providerAuthStorage.getProviderById(provider.ownerId) : undefined;
+        const owner = provider.ownerId ? await providerAuthStorage.getProviderById(provider.ownerId) : undefined;
         return {
           ...provider,
           keysCount: keys.length,

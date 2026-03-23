@@ -56,27 +56,32 @@ export class ProviderAuthStorage {
     };
   }
 
-  getProviderByUsername(username: string): ProviderAccount | undefined {
+  async getProviderByUsername(username: string): Promise<ProviderAccount | undefined> {
+    await this.ensureDb();
     const row = this.db.prepare("SELECT * FROM provider_accounts WHERE username = ?").get(username);
     return row ? this.rowToProvider(row) : undefined;
   }
 
-  getProviderById(id: string): ProviderAccount | undefined {
+  async getProviderById(id: string): Promise<ProviderAccount | undefined> {
+    await this.ensureDb();
     const row = this.db.prepare("SELECT * FROM provider_accounts WHERE id = ?").get(id);
     return row ? this.rowToProvider(row) : undefined;
   }
 
-  getProviderBySessionToken(sessionToken: string): ProviderAccount | undefined {
+  async getProviderBySessionToken(sessionToken: string): Promise<ProviderAccount | undefined> {
+    await this.ensureDb();
     const row = this.db.prepare("SELECT * FROM provider_accounts WHERE session_token = ?").get(sessionToken);
     return row ? this.rowToProvider(row) : undefined;
   }
 
-  getProviderAccounts(): ProviderAccount[] {
+  async getProviderAccounts(): Promise<ProviderAccount[]> {
+    await this.ensureDb();
     const rows = this.db.prepare("SELECT * FROM provider_accounts ORDER BY created_at DESC").all();
     return rows.map((row) => this.rowToProvider(row));
   }
 
-  createProviderAccount(username: string, passwordHash: string): ProviderAccount {
+  async createProviderAccount(username: string, passwordHash: string): Promise<ProviderAccount> {
+    await this.ensureDb();
     const id = randomUUID();
     const createdAt = Date.now();
     const stmt = this.db.prepare(`
@@ -92,7 +97,8 @@ export class ProviderAuthStorage {
     };
   }
 
-  updateProviderAccount(id: string, updates: { username?: string; passwordHash?: string; clearSession?: boolean }): ProviderAccount | undefined {
+  async updateProviderAccount(id: string, updates: { username?: string; passwordHash?: string; clearSession?: boolean }): Promise<ProviderAccount | undefined> {
+    await this.ensureDb();
     const fields: string[] = [];
     const values: any[] = [];
 
@@ -117,18 +123,21 @@ export class ProviderAuthStorage {
     return this.getProviderById(id);
   }
 
-  deleteProviderAccount(id: string): boolean {
+  async deleteProviderAccount(id: string): Promise<boolean> {
+    await this.ensureDb();
     const stmt = this.db.prepare("DELETE FROM provider_accounts WHERE id = ?");
     const result = stmt.run(id);
     return result.changes > 0;
   }
 
-  setProviderSession(id: string, sessionToken: string): void {
+  async setProviderSession(id: string, sessionToken: string): Promise<void> {
+    await this.ensureDb();
     const stmt = this.db.prepare("UPDATE provider_accounts SET session_token = ? WHERE id = ?");
     stmt.run(sessionToken, id);
   }
 
-  clearProviderSession(id: string): void {
+  async clearProviderSession(id: string): Promise<void> {
+    await this.ensureDb();
     const stmt = this.db.prepare("UPDATE provider_accounts SET session_token = NULL WHERE id = ?");
     stmt.run(id);
   }
