@@ -361,23 +361,29 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Admin login
   app.post("/api/admin/login", async (req: Request, res: Response) => {
     const { username, password } = req.body;
+    console.log(`Login attempt for: ${username}`);
 
     try {
       const admin = await storage.getAdmin(username);
-      if (!admin) return res.status(401).json({ message: "Invalid credentials" });
+      if (!admin) {
+        console.log(`Admin not found in DB: ${username}`);
+        return res.status(401).json({ message: "Invalid credentials" });
+      }
 
       const valid = await comparePasswords(password, admin.password);
+      console.log(`Password match for ${username}: ${valid}`);
 
       if (valid) {
         (req.session as any).adminId = admin.id;
         req.session.save(() => {
-          res.json({ success: true });
+          console.log(`Login successful, session saved for ${username}`);
+          res.json(admin);
         });
       } else {
         res.status(401).json({ error: "Invalid credentials" });
       }
     } catch (error) {
-      console.error("Login error:", error);
+      console.error("Login route error:", error);
       res.status(500).json({ error: "Internal server error" });
     }
   });
