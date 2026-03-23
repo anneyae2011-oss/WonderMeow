@@ -16,7 +16,7 @@ import {
   Stats,
   AdminCredentials,
   Admin,
-} from '@shared/schema';
+} from '../shared/schema.js';
 import { IStorage } from './storage';
 
 const __filename = fileURLToPath(import.meta.url);

@@ -13,7 +13,7 @@ import {
   insertApiKeySchema,
   insertModelSchema,
   insertUserTokenSchema,
-} from "@shared/schema";
+} from "../shared/schema.js";
 import { rateLimit } from 'express-rate-limit';
 import { checkStringValidity, countInputTokens, estimateTokens, getClientIP } from '../tools/utils';
 
