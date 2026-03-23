@@ -1,4 +1,3 @@
-import Database from "better-sqlite3";
 import { randomUUID } from "crypto";
 import * as path from "path";
 
@@ -11,12 +10,25 @@ export interface ProviderAccount {
 }
 
 export class ProviderAuthStorage {
-  private db: Database.Database;
+  private db: any | null = null;
 
   constructor(dbPath?: string) {
-    const databasePath = dbPath || path.join(process.cwd(), "providers.db");
-    this.db = new Database(databasePath);
-    this.initializeDatabase();
+    this.dbPath = dbPath || path.join(process.cwd(), "providers.db");
+  }
+
+  private dbPath: string;
+
+  private async ensureDb() {
+    if (this.db) return;
+    try {
+      const { default: Database } = await import("better-sqlite3");
+      this.db = new Database(this.dbPath);
+      this.initializeDatabase();
+    } catch (err) {
+      console.error("ProviderAuthStorage: Failed to load better-sqlite3. Disabling provider auth storage.", err);
+      // In a real serverless env, we might want a mock here.
+      throw new Error("Provider storage unavailable");
+    }
   }
 
   private initializeDatabase(): void {

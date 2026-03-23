@@ -15,7 +15,7 @@ import {
   insertUserTokenSchema,
 } from "../shared/schema.js";
 import { rateLimit } from 'express-rate-limit';
-import { checkStringValidity, countInputTokens, estimateTokens, getClientIP } from '../tools/utils';
+import { checkStringValidity, countInputTokens, estimateTokens, getClientIP } from '../tools/utils.js';
 
 /* DEFINING RATE LIMIT FUNCITONS UP IN HERE */
 const adminLoginRateLimit = rateLimit({
