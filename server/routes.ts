@@ -975,6 +975,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.post("/api/providers", providerAuth, async (req: Request, res: Response) => {
     const providerAccount = (req as any).providerAccount;
     try {
+      console.log("Creating provider. Body:", JSON.stringify(req.body));
       const data = insertProviderSchema.parse(req.body);
 
       const existingProviders = await storage.getProviders();
@@ -1697,6 +1698,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.post("/api/admin/providers", adminAuth, async (req: Request, res: Response) => {
     try {
+      console.log("Admin Creating provider. Body:", JSON.stringify(req.body));
       const data = insertProviderSchema.parse(req.body);
 
       // Check for duplicate provider name
