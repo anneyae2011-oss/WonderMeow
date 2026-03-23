@@ -51,7 +51,8 @@ export function AdminUserTokenList({ }: AdminUserTokenListProps) {
   });
 
   // Filter tokens based on all criteria
-  const filteredTokens = tokens.filter((token: any) => {
+  const filteredTokens = (tokens || []).filter((token: any) => {
+    if (!token) return false;
     // Search by name or token value
     if (searchQuery) {
       const query = searchQuery.toLowerCase();

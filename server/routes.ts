@@ -27,55 +27,35 @@ const adminLoginRateLimit = rateLimit({
   limit: 3,
   standardHeaders: true,
   legacyHeaders: false,
-  message: "Too many requests!",
-  handler: (req, res, next, options) => {
-    console.error(`Rate limit triggered for IP ${getClientIP(req)} on route: ${req.originalUrl}`);
-    res.status(options.statusCode).send(options.message);
-  },
+  message: { error: "Too many requests!" },
 });
 const adminApiRateLimit = rateLimit({
   windowMs: 60 * 1_000,
   max: 30,
   standardHeaders: true,
   legacyHeaders: false,
-  message: "Too many requests!",
-  handler: (req, res, next, options) => {
-    console.error(`Rate limit triggered for IP ${getClientIP(req)} on route: ${req.originalUrl}`);
-    res.status(options.statusCode).send(options.message);
-  },
+  message: { error: "Too many requests!" },
 });
 const providerLoginRateLimit = rateLimit({
   windowMs: 60 * 1_000, //1min
   limit: 5,
   standardHeaders: true,
   legacyHeaders: false,
-  message: "Too many requests!",
-  handler: (req, res, next, options) => {
-    console.error(`Rate limit triggered for IP ${getClientIP(req)} on route: ${req.originalUrl}`);
-    res.status(options.statusCode).send(options.message);
-  },
+  message: { error: "Too many requests!" },
 });
 const subKeyRateLimit = rateLimit({
   windowMs: 5 * 1_000,
   max: 3,
   standardHeaders: true,
   legacyHeaders: false,
-  message: "Too many requests!",
-  handler: (req, res, next, options) => {
-    console.error(`Rate limit triggered for IP ${getClientIP(req)} on route: ${req.originalUrl}`);
-    res.status(options.statusCode).send(options.message);
-  },
+  message: { error: "Too many requests!" },
 });
 const subkeyRenameRateLimit = rateLimit({
   windowMs: 10 * 1_000,
   max: 3,
   standardHeaders: true,
   legacyHeaders: false,
-  message: "Too many requests!",
-  handler: (req, res, next, options) => {
-    console.error(`Rate limit triggered for IP ${getClientIP(req)} on route: ${req.originalUrl}`);
-    res.status(options.statusCode).send(options.message);
-  },
+  message: { error: "Too many requests!" },
 });
 const chatCompletionsRateLimit = rateLimit({
   windowMs: 1 * 1_000,

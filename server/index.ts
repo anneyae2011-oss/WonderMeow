@@ -6,12 +6,11 @@ import { log } from "./log.js";
 
 // Add global error handlers for serverless stability
 process.on("uncaughtException", (err) => {
-  console.error("Global Uncaught Exception:", err);
-  // In serverless, we might not be able to do much here, but logging helps.
+  console.error("Global Uncaught Exception:", err.message, err.stack);
 });
 
 process.on("unhandledRejection", (reason, promise) => {
-  console.error("Global Unhandled Rejection at:", promise, "reason:", reason);
+  console.error("Global Unhandled Rejection at:", promise, "reason:", reason instanceof Error ? reason.stack : reason);
 });
 
 export const app = express();

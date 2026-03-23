@@ -22,34 +22,35 @@ export function checkStringValidity(str: any): {valid: boolean; error?: string} 
 }
 
 // Helper function to get real client IP address
-export function getClientIP(req: Request): string {
-  // Cloudflare-specific header (most reliable if behind Cloudflare)
-  const cfConnectingIP = req.get('cf-connecting-ip');
+export function getClientIP(req: any): string {
+  if (!req) return 'unknown';
+
+  // Helper for req.get (Express) vs req.headers (raw Node)
+  const getHeader = (name: string): string | string[] | undefined => {
+    if (typeof req.get === 'function') return req.get(name);
+    if (req.headers) return req.headers[name];
+    return undefined;
+  };
+
+  const cfConnectingIP = getHeader('cf-connecting-ip');
+  const forwardedFor = getHeader('x-forwarded-for');
+  const realIP = getHeader('x-real-ip');
+  const clientIP = getHeader('x-client-ip');
   
-  // Standard proxy headers
-  const forwardedFor = req.get('x-forwarded-for');
-  const realIP = req.get('x-real-ip');
-  const clientIP = req.get('x-client-ip');
-  
-  // Priority: Cloudflare > X-Forwarded-For > X-Real-IP > X-Client-IP > req.ip
-  if (cfConnectingIP) {
-    return cfConnectingIP;
-  }
+  if (cfConnectingIP && typeof cfConnectingIP === 'string') return cfConnectingIP;
   
   if (forwardedFor) {
-    // X-Forwarded-For can be: "client, proxy1, proxy2"
-    return forwardedFor.split(',')[0].trim();
+    if (typeof forwardedFor === 'string') {
+      return forwardedFor.split(',')[0].trim();
+    } else if (Array.isArray(forwardedFor) && forwardedFor.length > 0) {
+      return forwardedFor[0].split(',')[0].trim();
+    }
   }
   
-  if (realIP) {
-    return realIP;
-  }
+  if (realIP && typeof realIP === 'string') return realIP;
+  if (clientIP && typeof clientIP === 'string') return clientIP;
   
-  if (clientIP) {
-    return clientIP;
-  }
-  
-  return req.ip || 'unknown';
+  return (req as any).ip || (req.socket?.remoteAddress) || 'unknown';
 }
 
 export function estimateTokens(text: string): number {
