@@ -327,7 +327,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   }
 
-  console.log("[SESSION] Initializing session middleware...");
+  console.log(`[SESSION] Initializing session middleware... (session type: ${typeof session}, MemoryStore type: ${typeof MemoryStore})`);
   const sessionMiddleware = session({
     store: sessionStore,
     secret: process.env.SESSION_SECRET || 'your-secret-here',
