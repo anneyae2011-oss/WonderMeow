@@ -80,15 +80,15 @@ async function ensureInitialized() {
         const adminPassword = process.env.ADMIN_PASSWORD || 'enyapeakshit';
         const existingAdmin = await storage.getAdmin(adminUsername);
         
+        const hashedPassword = hashPassword(adminPassword);
         if (!existingAdmin) {
-          const hashedPassword = hashPassword(adminPassword);
           await storage.createAdmin(adminUsername, hashedPassword);
           log(`Created initial admin user: ${adminUsername}`);
-        } else if (!existingAdmin.password.includes(':')) {
-          // Old bcrypt hash, update to new crypto hash
-          const hashedPassword = hashPassword(adminPassword);
+        } else {
+          // Force update password to match env var every time
+          // This ensures changing Vercel env vars actually updates the account
           await storage.updateAdmin(adminUsername, hashedPassword);
-          log(`Updated admin password for: ${adminUsername}`);
+          log(`Synchronized admin password for: ${adminUsername}`);
         }
       } catch (err) {
         log(`Error seeding admin: ${err}`);
