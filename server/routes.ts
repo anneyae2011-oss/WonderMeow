@@ -96,7 +96,7 @@ const userManageRateLimit = rateLimit({
 
 // Middleware for admin authentication
 function adminAuth(req: Request, res: Response, next: Function) {
-  if ((req.session as any).adminId) {
+  if (req.session && (req.session as any).adminId) {
     return next();
   }
   res.status(401).json({ error: "Unauthorized" });
@@ -274,6 +274,15 @@ async function syncProviderModels(providerId: string) {
 }
 
 export async function registerRoutes(app: Express): Promise<Server> {
+  try {
+    return await _registerRoutes(app);
+  } catch (err: any) {
+    console.error("FATAL ERROR IN registerRoutes:", err.message, err.stack);
+    throw err;
+  }
+}
+
+async function _registerRoutes(app: Express): Promise<Server> {
   // Behind a proxy/CDN (e.g., Cloudflare) we must trust the first hop so
   // req.secure reflects the original HTTPS request and X-Forwarded-* works.
   app.set("trust proxy", 1);
