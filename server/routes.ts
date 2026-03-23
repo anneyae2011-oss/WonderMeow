@@ -5,11 +5,18 @@ import { randomUUID } from "crypto";
 import cors from "cors";
 import session from "express-session";
 import MemoryStoreFactory from "memorystore";
-import { storage } from "./storage.js";
+import { getStorage } from "./storage.js";
+
+// Use a Proxy to lazily access storage and ensure it's initialized
+const storage: any = new Proxy({}, {
+  get(_target, prop) {
+    return (getStorage() as any)[prop];
+  }
+});
 
 // Handle ESM/CJS compatibility for session
 const sessionFunc = (session as any).default || session;
-const MemoryStore = MemoryStoreFactory(sessionFunc);
+const MemoryStore = (MemoryStoreFactory as any).default ? (MemoryStoreFactory as any).default(sessionFunc) : MemoryStoreFactory(sessionFunc);
 import { providerAuthStorage } from "./provider-auth-storage.js";
 import { hashPassword, comparePasswords } from "./auth.js";
 import {
@@ -96,6 +103,7 @@ const userManageRateLimit = rateLimit({
 
 // Middleware for admin authentication
 function adminAuth(req: Request, res: Response, next: Function) {
+  const storage = getStorage();
   if (req.session && (req.session as any).adminId) {
     return next();
   }
@@ -121,13 +129,18 @@ function providerAuth(req: Request, res: Response, next: Function) {
     return res.status(401).json({ error: "Unauthorized" });
   }
 
-  const providerAccount = providerAuthStorage.getProviderBySessionToken(sessionToken);
-  if (!providerAccount) {
-    return res.status(401).json({ error: "Unauthorized" });
-  }
-
-  (req as any).providerAccount = providerAccount;
-  next();
+  providerAuthStorage.getProviderBySessionToken(sessionToken)
+    .then(providerAccount => {
+      if (!providerAccount) {
+        return res.status(401).json({ error: "Unauthorized" });
+      }
+      (req as any).providerAccount = providerAccount;
+      next();
+    })
+    .catch(err => {
+      console.error("Provider auth error:", err);
+      res.status(500).json({ error: "Authentication internal error" });
+    });
 }
 
 // Middleware for user token authentication
@@ -193,6 +206,7 @@ async function resolveTokenAllowedProviders(userToken: any): Promise<string[]> {
   }
 
   if (userToken.createdByProviderId) {
+    const storage = getStorage();
     const providers = await storage.getProviders();
     return providers
       .filter((provider) => provider.ownerId === userToken.createdByProviderId)
@@ -317,10 +331,10 @@ async function _registerRoutes(app: Express): Promise<Server> {
     sessionStore = new MemoryStore({ checkPeriod: 86400000 });
   } else {
     try {
-      // Use string to hide from Vercel bundler NFT
       const storeName = "connect-pg-simple";
       const pgStore = await import(storeName);
-      const PostgresStore = pgStore.default(sessionFunc);
+      const PgStoreCtor = pgStore.default || pgStore;
+      const PostgresStore = typeof PgStoreCtor === 'function' ? PgStoreCtor(sessionFunc) : PgStoreCtor.default(sessionFunc);
       sessionStore = new PostgresStore({
         conString: process.env.DATABASE_URL,
         tableName: 'session'
@@ -1685,7 +1699,7 @@ async function _registerRoutes(app: Express): Promise<Server> {
       return res.status(400).json({ error: "Username is required" });
     }
 
-    const account = providerAuthStorage.getProviderByUsername(normalizedUsername);
+    const account = await providerAuthStorage.getProviderByUsername(normalizedUsername);
     if (!account) {
       return res.status(404).json({ error: "Provider account not found" });
     }
