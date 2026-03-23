@@ -6,7 +6,10 @@ import cors from "cors";
 import session from "express-session";
 import MemoryStoreFactory from "memorystore";
 import { storage } from "./storage.js";
-const MemoryStore = MemoryStoreFactory(session);
+
+// Handle ESM/CJS compatibility for session
+const sessionFunc = (session as any).default || session;
+const MemoryStore = MemoryStoreFactory(sessionFunc);
 import { providerAuthStorage } from "./provider-auth-storage.js";
 import { hashPassword, comparePasswords } from "./auth.js";
 import {
@@ -315,7 +318,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Use string to hide from Vercel bundler NFT
       const storeName = "connect-pg-simple";
       const pgStore = await import(storeName);
-      const PostgresStore = pgStore.default(session);
+      const PostgresStore = pgStore.default(sessionFunc);
       sessionStore = new PostgresStore({
         conString: process.env.DATABASE_URL,
         tableName: 'session'
@@ -327,8 +330,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   }
 
-  console.log(`[SESSION] Initializing session middleware... (session type: ${typeof session}, MemoryStore type: ${typeof MemoryStore})`);
-  const sessionMiddleware = session({
+  console.log(`[SESSION] Initializing session middleware... (session type: ${typeof sessionFunc}, MemoryStore type: ${typeof MemoryStore})`);
+  const sessionMiddleware = sessionFunc({
     store: sessionStore,
     secret: process.env.SESSION_SECRET || 'your-secret-here',
     resave: false,
@@ -355,7 +358,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
 
   app.get("/api/admin/me", async (req: Request, res: Response) => {
-    if (!(req.session as any).adminId) {
+    if (!req.session || !(req.session as any).adminId) {
       return res.status(401).json({ error: "Not authenticated" });
     }
     
@@ -400,6 +403,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
       console.log(`[AUTH] Password match for ${username}: ${valid}`);
 
       if (valid) {
+        if (!req.session) {
+          console.error("[AUTH] req.session is missing during login success block!");
+          return res.status(500).json({ error: "Session failure" });
+        }
         (req.session as any).adminId = admin.id;
         req.session.save(() => {
           console.log(`[AUTH] Login success: ${username}`);
@@ -419,6 +426,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   // Admin logout
   app.post("/api/admin/logout", (req, res) => {
+    if (!req.session) {
+      return res.json({ success: true });
+    }
     req.session.destroy((err) => {
       if (err) {
         return res.status(500).json({ error: "Failed to logout" });
