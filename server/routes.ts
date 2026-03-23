@@ -3,7 +3,10 @@ import { createServer, type Server } from "http";
 import { WebSocketServer, WebSocket } from "ws";
 import { randomUUID } from "crypto";
 import cors from "cors";
+import session from "express-session";
+import MemoryStoreFactory from "memorystore";
 import { storage } from "./storage.js";
+const MemoryStore = MemoryStoreFactory(session);
 import { providerAuthStorage } from "./provider-auth-storage.js";
 import { hashPassword, comparePasswords } from "./auth.js";
 import {
