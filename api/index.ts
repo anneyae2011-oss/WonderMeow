@@ -4,8 +4,6 @@ import { registerRoutes } from "../server/routes.js";
 import { setupVite, serveStatic, log } from "../server/vite.js";
 import { storage, initStorage } from "../server/storage.js";
 import { hashPassword } from "../server/auth.js";
-import { createRequire } from "module";
-const require = createRequire(import.meta.url);
 
 // Add global error handlers for serverless stability
 process.on("uncaughtException", (err) => {
