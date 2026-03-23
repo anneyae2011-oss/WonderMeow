@@ -51,8 +51,8 @@ export function AdminProviderList({ }: AdminProviderListProps) {
   const filteredProviders = providers.filter((provider: any) => {
     if (searchQuery) {
       const query = searchQuery.toLowerCase();
-      const matchesName = provider.name.toLowerCase().includes(query);
-      const matchesUrl = provider.baseUrl.toLowerCase().includes(query);
+      const matchesName = (provider?.name || "").toLowerCase().includes(query);
+      const matchesUrl = (provider?.baseUrl || "").toLowerCase().includes(query);
       if (!matchesName && !matchesUrl) return false;
     }
     return true;

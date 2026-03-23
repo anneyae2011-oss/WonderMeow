@@ -19,8 +19,13 @@ export const api = {
       body: JSON.stringify({ token }),
     }).then(async (res) => {
       if (!res.ok) {
-        const error = await res.json();
-        throw new Error(error.error || "Failed to fetch token stats");
+        let errorData;
+        try {
+          errorData = await res.json();
+        } catch (e) {
+          errorData = { error: res.statusText };
+        }
+        throw new Error(errorData?.error || "Failed to fetch data");
       }
       return res.json();
     }),
@@ -127,7 +132,8 @@ export const api = {
   checkAuth: () =>
     fetch("/api/admin/me").then(async (res) => {
       if (!res.ok) throw new Error("Not authenticated");
-      return res.json();
+      const data = await res.json();
+      return data || { authenticated: false };
     }),
 
   // Logout
@@ -136,7 +142,11 @@ export const api = {
       method: "POST",
     }).then(async (res) => {
       if (!res.ok) throw new Error("Logout failed");
-      return res.json();
+      try {
+        return await res.json();
+      } catch (e) {
+        return { success: true };
+      }
     }),
 
   // Admin - Providers

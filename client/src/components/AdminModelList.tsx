@@ -36,7 +36,7 @@ export function AdminModelList({ providerId, providerName, searchQuery = "" }: A
   });
 
   const models = allModels.filter((model: any) =>
-    model.modelId.toLowerCase().includes(searchQuery.toLowerCase())
+    (model?.modelId || "").toLowerCase().includes(searchQuery.toLowerCase())
   );
 
   const toggleModel = async (id: string, currentState: boolean) => {

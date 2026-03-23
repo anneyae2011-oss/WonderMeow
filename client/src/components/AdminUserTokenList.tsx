@@ -55,8 +55,8 @@ export function AdminUserTokenList({ }: AdminUserTokenListProps) {
     // Search by name or token value
     if (searchQuery) {
       const query = searchQuery.toLowerCase();
-      const matchesName = token.name.toLowerCase().includes(query);
-      const matchesToken = token.token.toLowerCase().includes(query);
+      const matchesName = (token.name || "").toLowerCase().includes(query);
+      const matchesToken = (token.token || "").toLowerCase().includes(query);
       if (!matchesName && !matchesToken) return false;
     }
 
@@ -107,7 +107,8 @@ export function AdminUserTokenList({ }: AdminUserTokenListProps) {
     // Normalize the allowedProviders to ensure they are all IDs
     const providerIds = (token.allowedProviders || []).map((item: string) => {
       // If the item is a name, convert it to an ID. Otherwise, assume it's already an ID.
-      return providerNameToIdMap[item.toLowerCase()] || item;
+      const nameKey = (item || "").toLowerCase();
+      return providerNameToIdMap[nameKey] || item;
     });
 
     setEditAllowedProviders(providerIds);
