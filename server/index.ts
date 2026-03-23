@@ -77,8 +77,8 @@ async function ensureInitialized() {
         const adminPassword = process.env.ADMIN_PASSWORD || 'enyapeakshit';
         const existingAdmin = await storage.getAdmin(adminUsername);
         if (!existingAdmin) {
-          const { default: bcrypt } = await import("bcrypt");
-          const hashedPassword = await bcrypt.hash(adminPassword, 10);
+          const { hashPassword } = await import("./auth.js");
+          const hashedPassword = hashPassword(adminPassword);
           await storage.createAdmin(adminUsername, hashedPassword);
           log(`Created initial admin user: ${adminUsername}`);
         }

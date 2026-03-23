@@ -1569,7 +1569,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         if (!normalizedPassword) {
           return res.status(400).json({ error: "Password is required" });
         }
-        passwordHash = await bcrypt.hash(normalizedPassword, 10);
+        passwordHash = hashPassword(normalizedPassword);
       }
 
       const updated = providerAuthStorage.updateProviderAccount(req.params.id, {
