@@ -386,7 +386,6 @@ async function _registerRoutes(app: Express): Promise<Server> {
   }
 
   // Session configuration using robust async helper
-  const sessionInstance = (session as any).default || session;
   const sessionStore = await getSessionStore(sessionInstance);
 
   const sessionMiddleware = sessionInstance({

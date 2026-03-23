@@ -108,10 +108,18 @@ async function ensureInitialized() {
 // For Vercel, we export the app instance wrapped in an initialization waiter.
 export default async (req: any, res: any) => {
   try {
-    await ensureInitialized();
+    console.log(`[VERCEL] Invocation started for path: ${req.url}`);
+    await ensureInitialized().catch(err => {
+       console.error("[VERCEL] Initialization failed internally:", err.message);
+       throw err;
+    });
     return app(req, res);
   } catch (err: any) {
-    console.error("Vercel Invocation Error:", err);
-    res.status(500).send(`Application Initialization Error: ${err.message}`);
+    console.error("Vercel Invocation Error:", err.message, err.stack);
+    // Return a plain text error that Vercel won't swallow
+    if (!res.headersSent) {
+      res.setHeader('Content-Type', 'text/plain');
+      res.status(500).send(`CRITICAL_SERVER_ERROR: ${err.message}\n${err.stack}`);
+    }
   }
 };
