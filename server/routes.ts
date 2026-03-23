@@ -10,11 +10,16 @@ import { getStorage } from "./storage.js";
 // Use a Proxy to lazily access storage and ensure it's initialized
 const storage: any = new Proxy({}, {
   get(_target, prop) {
-    if (typeof prop === 'symbol') return (getStorage() as any)[prop];
-    const s = getStorage();
-    if (!s) return undefined;
-    const val = (s as any)[prop];
-    return typeof val === 'function' ? val.bind(s) : val;
+    if (typeof prop === 'symbol') return undefined; // Protect against Symbol access before init
+    try {
+      const s = getStorage();
+      if (!s) return undefined;
+      const val = (s as any)[prop];
+      return typeof val === 'function' ? val.bind(s) : val;
+    } catch (e) {
+      // If storage isn't ready yet, return undefined or a dummy for common properties
+      return undefined;
+    }
   }
 });
 
@@ -46,7 +51,7 @@ import { rateLimit } from 'express-rate-limit';
 import { checkStringValidity, countInputTokens, estimateTokens, getClientIP } from '../tools/utils.js';
 
 // Robust session store factory helper
-function getSessionStore(sessionInstance: any) {
+async function getSessionStore(sessionInstance: any) {
   if (process.env.VERCEL || !process.env.DATABASE_URL) {
     console.log("[SESSION] Initializing MemoryStore");
     const Store = (MemoryStoreFactory as any).default ? (MemoryStoreFactory as any).default(sessionInstance) : (typeof MemoryStoreFactory === 'function' ? MemoryStoreFactory(sessionInstance) : null);
@@ -55,10 +60,10 @@ function getSessionStore(sessionInstance: any) {
   }
 
   console.log("[SESSION] Initializing PostgresStore");
-  // We'll require this dynamically to avoid issues on Vercel without PG
   try {
-    // @ts-ignore
-    const PgStoreFactory = require('connect-pg-simple')(sessionInstance);
+    const pgSimpleModule = await import('connect-pg-simple');
+    const PgStoreFactoryFactory = pgSimpleModule.default || pgSimpleModule;
+    const PgStoreFactory = PgStoreFactoryFactory(sessionInstance);
     return new PgStoreFactory({
       conString: process.env.DATABASE_URL,
       tableName: 'session',
