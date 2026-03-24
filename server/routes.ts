@@ -324,18 +324,7 @@ async function syncProviderModels(providerId: string) {
 }
 
 export async function registerRoutes(app: Express): Promise<Server> {
-  // Global error handler for the entire router
-  app.use((err: any, req: Request, res: Response, next: any) => {
-    console.error("GLOBAL ROUTE ERROR:", err.message, err.stack);
-    if (!res.headersSent) {
-      res.status(500).json({ 
-        error: "Internal Server Error (Global Handler)", 
-        message: err.message, 
-        stack: err.stack,
-        path: req.path
-      });
-    }
-  });
+  // Global error handler removed from here, consolidated at the end of _registerRoutes
 
   try {
     return await _registerRoutes(app);
@@ -401,10 +390,11 @@ async function _registerRoutes(app: Express): Promise<Server> {
 
   app.use(sessionMiddleware);
   
-  // Debug middleware to verify session is attached
+  // Debug middleware to verify session is attached - ADDED ROBUST GUARDS
   app.use((req, res, next) => {
-    if (req.path.includes("/login") || req.path.includes("/me")) {
-      console.log(`[SESSION DEBUG] Path: ${req.path}, Session defined: ${!!req.session}`);
+    const path = req.path || (req as any).url || "unknown-path";
+    if (path.includes("/login") || path.includes("/me")) {
+      console.log(`[SESSION DEBUG] Path: ${path}, Session defined: ${!!req.session}`);
     }
     next();
   });
@@ -413,13 +403,32 @@ async function _registerRoutes(app: Express): Promise<Server> {
 
 
   app.get("/api/admin/me", async (req: Request, res: Response) => {
-    if (!req.session || !(req.session as any).adminId) {
-      return res.status(401).json({ error: "Not authenticated" });
+    try {
+      console.log("[AUTH] /api/admin/me request received");
+      if (!req.session) {
+        console.warn("[AUTH] No session object on /me request");
+        return res.status(401).json({ error: "Not authenticated (No session)" });
+      }
+
+      const adminId = (req.session as any).adminId;
+      if (!adminId) {
+        console.log("[AUTH] No adminId in session on /me request");
+        return res.status(401).json({ error: "Not authenticated" });
+      }
+      
+      console.log(`[AUTH] /me request successful for adminId: ${adminId}`);
+      res.json({
+        authenticated: true,
+        adminId: adminId
+      });
+    } catch (e: any) {
+      console.error("[AUTH] Fatal error in /api/admin/me:", e.message, e.stack);
+      res.status(500).json({ 
+        error: "Internal Server Error in /me", 
+        message: e.message,
+        diagnostic: "Take 3 Debugging"
+      });
     }
-    
-    res.json({
-      authenticated: true
-    });
   });
   
   app.use('/api/admin', adminApiRateLimit);
