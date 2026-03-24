@@ -20,26 +20,48 @@ import { checkStringValidity, countInputTokens, estimateTokens, getClientIP } fr
 
 // Robust session store factory helper
 async function getSessionStore(sessionInstance: any) {
+  if (!sessionInstance) {
+    console.error("[SESSION] sessionInstance is undefined in getSessionStore!");
+    return null;
+  }
+  
   console.log("[SESSION] Initializing session store...");
   try {
     // Try to use memorystore package first for better performance/TTL
-    const MemoryStoreFactoryMod = await import("memorystore");
-    const Factory = (MemoryStoreFactoryMod as any).default || MemoryStoreFactoryMod;
+    // Use the already imported MemoryStoreFactory if possible, otherwise dynamic import
+    let Factory = MemoryStoreFactory;
+    
+    if (!Factory || (typeof Factory !== 'function' && !(Factory as any).default)) {
+      console.log("[SESSION] Top-level MemoryStoreFactory invalid, trying dynamic import...");
+      const MemoryStoreFactoryMod = await import("memorystore");
+      Factory = (MemoryStoreFactoryMod as any).default || MemoryStoreFactoryMod;
+    }
+
     if (typeof Factory === 'function') {
-      const Store = Factory(sessionInstance);
+      const Store = (Factory as any)(sessionInstance);
+      console.log("[SESSION] MemoryStore initialized successfully");
+      return new Store({ checkPeriod: 86400000 });
+    } else if (Factory && (Factory as any).default && typeof (Factory as any).default === 'function') {
+      const Store = (Factory as any).default(sessionInstance);
+      console.log("[SESSION] MemoryStore (default) initialized successfully");
       return new Store({ checkPeriod: 86400000 });
     }
   } catch (e: any) {
-    console.warn("[SESSION] MemoryStore package failed, using built-in MemoryStore:", e.message);
+    console.warn("[SESSION] MemoryStore package failed:", e.message);
   }
   
   // Failsafe: Use express-session's built-in MemoryStore
   try {
-    return new sessionInstance.MemoryStore();
+    if (sessionInstance.MemoryStore) {
+      console.log("[SESSION] Using built-in MemoryStore fallback");
+      return new sessionInstance.MemoryStore();
+    }
   } catch (e: any) {
-    console.error("[SESSION] Built-in MemoryStore failed too:", e.message);
-    return null;
+    console.error("[SESSION] Built-in MemoryStore fallback failed:", e.message);
   }
+
+  console.error("[SESSION] All session store initialization attempts FAILED");
+  return null;
 }
 
 /* DEFINING RATE LIMIT FUNCITONS UP IN HERE */
@@ -325,7 +347,28 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
 async function _registerRoutes(app: Express): Promise<Server> {
   const storage = getStorage();
-  const sessionInstance = (session as any).default || session;
+  
+  // SESSION SETUP
+  console.log("[SESSION] Starting session setup...");
+  let sessionInstance: any;
+  try {
+    sessionInstance = (session as any).default || session;
+    if (!sessionInstance || typeof sessionInstance !== 'function') {
+      console.error("[SESSION] sessionInstance is NOT a function! Value:", typeof sessionInstance);
+      // Try one more fallback if possible
+      if (!sessionInstance) {
+        console.log("[SESSION] Attempting emergency dynamic import of express-session...");
+        const sessionMod = await import("express-session");
+        sessionInstance = (sessionMod as any).default || sessionMod;
+      }
+    }
+  } catch (e: any) {
+    console.error("[SESSION] Fatal error resolving sessionInstance:", e.message);
+  }
+
+  if (!sessionInstance || typeof sessionInstance !== 'function') {
+    throw new Error("Failed to initialize express-session: sessionInstance is not a function");
+  }
 
   // Enable CORS
   app.use(cors({
@@ -339,6 +382,7 @@ async function _registerRoutes(app: Express): Promise<Server> {
 
   // Session configuration using robust async helper
   const sessionStore = await getSessionStore(sessionInstance);
+  console.log("[SESSION] Session store resolved:", sessionStore ? "Custom/MemoryStore" : "Default (Warning)");
 
   const sessionMiddleware = sessionInstance({
     store: sessionStore || undefined,
