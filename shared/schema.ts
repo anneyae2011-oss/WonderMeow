@@ -91,7 +91,7 @@ export interface Provider {
 export const insertProviderSchema = createInsertSchema(providers, {
   id: z.string().optional(),
   createdAt: z.number().optional(),
-  baseUrl: (schema) => schema.baseUrl.url(),
+  baseUrl: (schema) => schema.url(),
   customHeaders: z.record(z.string()).optional() as any,
 });
 export type InsertProvider = z.infer<typeof insertProviderSchema>;
