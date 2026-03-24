@@ -26,21 +26,43 @@ class DrizzleSessionStore extends (session as any).Store {
   }
 
   get = (sid: string, callback: (err?: any, session?: any) => void) => {
+    console.log(`[SESSION] Store.get: ${sid}`);
     getStorage().getSession(sid)
-      .then(data => callback(null, data))
-      .catch(err => callback(err));
+      .then(data => {
+        if (data) console.log(`[SESSION] Store.get success: ${sid}`);
+        else console.log(`[SESSION] Store.get not found: ${sid}`);
+        callback(null, data);
+      })
+      .catch(err => {
+        console.error(`[SESSION] Store.get error: ${sid}`, err);
+        callback(err);
+      });
   };
 
   set = (sid: string, session: any, callback: (err?: any) => void) => {
+    console.log(`[SESSION] Store.set: ${sid}`);
     getStorage().setSession(sid, session)
-      .then(() => callback())
-      .catch(err => callback(err));
+      .then(() => {
+        console.log(`[SESSION] Store.set success: ${sid}`);
+        callback();
+      })
+      .catch(err => {
+        console.error(`[SESSION] Store.set error: ${sid}`, err);
+        callback(err);
+      });
   };
 
   destroy = (sid: string, callback: (err?: any) => void) => {
+    console.log(`[SESSION] Store.destroy: ${sid}`);
     getStorage().deleteSession(sid)
-      .then(() => callback())
-      .catch(err => callback(err));
+      .then(() => {
+        console.log(`[SESSION] Store.destroy success: ${sid}`);
+        callback();
+      })
+      .catch(err => {
+        console.error(`[SESSION] Store.destroy error: ${sid}`, err);
+        callback(err);
+      });
   };
 }
 
@@ -357,6 +379,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
 async function _registerRoutes(app: Express): Promise<Server> {
   const storage = getStorage();
+  
+  // Vercel/Proxy support
+  console.log("[SESSION] Enabling trust proxy (1)...");
+  app.set('trust proxy', 1);
   
   // SESSION SETUP
   console.log("[SESSION] Starting session setup...");
