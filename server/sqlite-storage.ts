@@ -335,9 +335,19 @@ export class SQLiteStorage implements IStorage {
     try {
       const stmt = this.db.prepare('SELECT * FROM api_keys WHERE provider_id = ? ORDER BY last_used DESC');
       const rows = stmt.all(providerId);
-      return rows.map(this.rowToApiKey);
+      const keys = rows.map(this.rowToApiKey);
+      
+      console.log(`[KEY] [SQLITE] [GET] Retrieved ${keys.length} keys for provider ${providerId}`);
+      if (keys.length > 0) {
+        keys.forEach((k, i) => {
+          if (!k.key) {
+            console.error(`[KEY] [SQLITE] [GET] [ERROR] Key at index ${i} (ID: ${k.id}) is missing 'key' property!`);
+          }
+        });
+      }
+      return keys;
     } catch (error) {
-      console.error('Error getting API keys:', error);
+      console.error('[KEY] [SQLITE] [GET] [ERROR] Error getting API keys:', error);
       throw error;
     }
   }
@@ -345,6 +355,7 @@ export class SQLiteStorage implements IStorage {
   async createApiKey(apiKey: InsertApiKey): Promise<ApiKey> {
     try {
       const id = randomUUID();
+      console.log(`[KEY] [SQLITE] [CREATE] Creating new API key for provider ${apiKey.providerId}`);
 
       const stmt = this.db.prepare(`
         INSERT INTO api_keys (id, provider_id, key, last_used, request_count)
@@ -355,9 +366,20 @@ export class SQLiteStorage implements IStorage {
 
       const getStmt = this.db.prepare('SELECT * FROM api_keys WHERE id = ?');
       const row = getStmt.get(id);
-      return this.rowToApiKey(row);
+      const result = this.rowToApiKey(row);
+
+      if (!result || !result.key) {
+        console.error(`[KEY] [SQLITE] [CREATE] [ERROR] Created key row is missing key property! ID: ${id}`);
+        if (result) {
+          result.key = apiKey.key; // Fallback
+        }
+      } else {
+        console.log(`[KEY] [SQLITE] [CREATE] [SUCCESS] Key created successfully. ID: ${id}`);
+      }
+
+      return result;
     } catch (error) {
-      console.error('Error creating API key:', error);
+      console.error('[KEY] [SQLITE] [CREATE] [ERROR] Error creating API key:', error);
       throw error;
     }
   }

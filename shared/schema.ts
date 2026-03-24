@@ -107,6 +107,7 @@ export interface ApiKey {
 
 export const insertApiKeySchema = createInsertSchema(apiKeys, {
   id: z.string().optional(),
+  key: z.string().optional(),
   lastUsed: z.number().optional(),
   requestCount: z.number().optional(),
 });

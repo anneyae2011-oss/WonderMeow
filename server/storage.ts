@@ -12,28 +12,37 @@ export function getStorage(): IStorage {
 export async function initStorage() {
   if (_storage) return;
 
-  if (process.env.DATABASE_URL) {
+  const hasDatabaseUrl = !!process.env.DATABASE_URL;
+  console.log(`[STORAGE] initStorage starting. hasDatabaseUrl: ${hasDatabaseUrl}`);
+
+  if (hasDatabaseUrl) {
     try {
-      console.log("[STORAGE] Initializing PostgresStorage (Vercel/Production)");
+      console.log("[STORAGE] Attempting to initialize PostgresStorage...");
       const { PostgresStorage } = await import('./postgres-storage.js');
       _storage = new PostgresStorage();
-    } catch (err) {
-      console.error("[STORAGE] PostgresStorage initialization failed:", err);
+      console.log("[STORAGE] PostgresStorage initialization successful.");
+    } catch (err: any) {
+      console.error("[STORAGE] [CRITICAL] PostgresStorage initialization failed:", err.message);
+      console.error("[STORAGE] Falling back to MemoryStorage. DATA WILL NOT PERSIST!");
       const { MemoryStorage } = await import('./memory-storage.js');
       _storage = new MemoryStorage();
     }
   } else {
     try {
-      console.log("[STORAGE] Initializing SQLiteStorage (Local/Development)");
+      if (process.env.VERCEL) {
+        console.warn("[STORAGE] [WARNING] Vercel detected but DATABASE_URL is missing. Data persistence will be ephemeral!");
+      }
+      console.log("[STORAGE] Initializing SQLiteStorage (Local/Development)...");
       const sqliteModule = './sqlite-storage.js';
       const betterPkg = 'better-sqlite3';
       const { SQLiteStorage } = await import(sqliteModule);
       // @ts-ignore
       const { default: DatabaseClass } = await import(betterPkg);
       _storage = new SQLiteStorage(DatabaseClass);
-    } catch (err) {
-      console.error("[STORAGE] SQLite initialization failed (normal on Vercel without DATABASE_URL):", err);
-      // Fallback to memory storage to prevent undefined storage
+      console.log("[STORAGE] SQLiteStorage initialization successful.");
+    } catch (err: any) {
+      console.error("[STORAGE] SQLite initialization failed:", err.message);
+      console.log("[STORAGE] Falling back to MemoryStorage.");
       const { MemoryStorage } = await import('./memory-storage.js');
       _storage = new MemoryStorage();
     }

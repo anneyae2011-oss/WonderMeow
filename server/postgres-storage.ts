@@ -58,20 +58,58 @@ export class PostgresStorage implements IStorage {
 
   // API Key methods
   async getApiKeys(providerId: string): Promise<schema.ApiKey[]> {
-    return await this.db.select().from(schema.apiKeys)
-      .where(eq(schema.apiKeys.providerId, providerId))
-      .orderBy(desc(schema.apiKeys.lastUsed));
+    try {
+      const keys = await this.db.select().from(schema.apiKeys)
+        .where(eq(schema.apiKeys.providerId, providerId))
+        .orderBy(desc(schema.apiKeys.lastUsed));
+      
+      console.log(`[KEY] [GET] Retrieved ${keys.length} keys for provider ${providerId}`);
+      if (keys.length > 0) {
+        keys.forEach((k, i) => {
+          if (!k.key) {
+            console.error(`[KEY] [GET] [ERROR] Key at index ${i} (ID: ${k.id}) is missing 'key' property!`);
+          }
+        });
+      }
+      return keys;
+    } catch (error) {
+      console.error(`[KEY] [GET] [ERROR] Failed to get API keys for provider ${providerId}:`, error);
+      throw error;
+    }
   }
 
   async createApiKey(apiKey: schema.InsertApiKey): Promise<schema.ApiKey> {
-    const id = randomUUID();
-    const [newKey] = await this.db.insert(schema.apiKeys).values({
-      ...apiKey,
-      id,
-      lastUsed: 0,
-      requestCount: 0,
-    }).returning();
-    return newKey;
+    try {
+      const id = randomUUID();
+      console.log(`[KEY] [CREATE] Creating new API key for provider ${apiKey.providerId}`);
+      
+      const { key: providedKey, ...insertData } = apiKey as any;
+      if (!providedKey) {
+        console.warn(`[KEY] [CREATE] [WARNING] No key provided in request!`);
+      }
+
+      const [newKey] = await this.db.insert(schema.apiKeys).values({
+        ...insertData,
+        id,
+        key: providedKey || "", // Ensure it's never undefined
+        lastUsed: 0,
+        requestCount: 0,
+      }).returning();
+
+      if (!newKey || !newKey.key) {
+        console.error(`[KEY] [CREATE] [ERROR] Created key row is missing key property! ID: ${id}`);
+        if (newKey) {
+          newKey.key = providedKey || ""; // Fallback
+        }
+      } else {
+        console.log(`[KEY] [CREATE] [SUCCESS] Key created successfully. ID: ${id}`);
+      }
+
+      return newKey;
+    } catch (error) {
+      console.error(`[KEY] [CREATE] [ERROR] Failed to create API key:`, error);
+      throw error;
+    }
   }
 
   async deleteApiKey(id: string): Promise<boolean> {
