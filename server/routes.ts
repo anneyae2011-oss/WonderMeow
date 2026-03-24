@@ -18,6 +18,32 @@ import {
 import { rateLimit } from 'express-rate-limit';
 import { checkStringValidity, countInputTokens, estimateTokens, getClientIP } from '../tools/utils.js';
 
+// Robust sessions using Drizzle/Postgres for Vercel persistence
+class DrizzleSessionStore extends (session as any).Store {
+  constructor() {
+    super();
+    console.log("[SESSION] DrizzleSessionStore initialized for persistence");
+  }
+
+  get = (sid: string, callback: (err?: any, session?: any) => void) => {
+    getStorage().getSession(sid)
+      .then(data => callback(null, data))
+      .catch(err => callback(err));
+  };
+
+  set = (sid: string, session: any, callback: (err?: any) => void) => {
+    getStorage().setSession(sid, session)
+      .then(() => callback())
+      .catch(err => callback(err));
+  };
+
+  destroy = (sid: string, callback: (err?: any) => void) => {
+    getStorage().deleteSession(sid)
+      .then(() => callback())
+      .catch(err => callback(err));
+  };
+}
+
 // Robust session store factory helper
 async function getSessionStore(sessionInstance: any) {
   if (!sessionInstance) {
@@ -364,12 +390,12 @@ async function _registerRoutes(app: Express): Promise<Server> {
     console.log("WARNING: SESSION_SECRET not set. Using default failsafe secret.");
   }
 
-  // Session configuration using robust async helper
-  const sessionStore = await getSessionStore(sessionInstance);
-  console.log("[SESSION] Session store resolved:", sessionStore ? "Custom/MemoryStore" : "Default (Warning)");
+  // Use DrizzleSessionStore for Vercel persistence instead of MemoryStore
+  const sessionStore = new DrizzleSessionStore();
+  console.log("[SESSION] Using persistent DrizzleSessionStore");
 
   const sessionMiddleware = sessionInstance({
-    store: sessionStore || undefined,
+    store: sessionStore,
     secret: process.env.SESSION_SECRET || 'sayori-proxy-ultra-secret-key-2024',
     resave: false,
     saveUninitialized: false,

@@ -1405,6 +1405,45 @@ export class SQLiteStorage implements IStorage {
     }
   }
 
+  // Session methods for persistent admin login using system_config table
+  async getSession(id: string): Promise<any | undefined> {
+    try {
+      const stmt = this.db.prepare('SELECT value FROM system_config WHERE key = ?');
+      const row = stmt.get(`session:${id}`) as { value: string } | undefined;
+      if (!row) return undefined;
+      return JSON.parse(row.value);
+    } catch (error) {
+      console.error('Error getting session from SQLite:', error);
+      return undefined;
+    }
+  }
+
+  async setSession(id: string, data: any): Promise<void> {
+    try {
+      const key = `session:${id}`;
+      const value = JSON.stringify(data);
+      const now = Date.now();
+      
+      const stmt = this.db.prepare(`
+        INSERT INTO system_config (key, value, updated_at)
+        VALUES (?, ?, ?)
+        ON CONFLICT(key) DO UPDATE SET value = EXCLUDED.value, updated_at = EXCLUDED.updated_at
+      `);
+      stmt.run(key, value, now);
+    } catch (error) {
+      console.error('Error setting session in SQLite:', error);
+    }
+  }
+
+  async deleteSession(id: string): Promise<void> {
+    try {
+      const stmt = this.db.prepare('DELETE FROM system_config WHERE key = ?');
+      stmt.run(`session:${id}`);
+    } catch (error) {
+      console.error('Error deleting session in SQLite:', error);
+    }
+  }
+
   close(): void {
     this.db.close();
   }

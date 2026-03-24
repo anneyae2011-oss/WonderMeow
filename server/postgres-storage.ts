@@ -547,4 +547,44 @@ export class PostgresStorage implements IStorage {
     const value = rows[0]?.value;
     return value === 'NULL' ? undefined : value;
   }
+
+  // Session methods for persistent admin login using systemConfig table
+  async getSession(id: string): Promise<any | undefined> {
+    try {
+      const rows = await this.db.select({ value: schema.systemConfig.value })
+        .from(schema.systemConfig).where(eq(schema.systemConfig.key, `session:${id}`));
+      
+      if (rows.length === 0) return undefined;
+      return JSON.parse(rows[0].value);
+    } catch (error) {
+      console.error('Error getting session:', error);
+      return undefined;
+    }
+  }
+
+  async setSession(id: string, data: any): Promise<void> {
+    try {
+      const key = `session:${id}`;
+      const value = JSON.stringify(data);
+      const now = Date.now();
+      
+      await this.db.insert(schema.systemConfig)
+        .values({ key, value, updatedAt: now })
+        .onConflictDoUpdate({
+          target: [schema.systemConfig.key],
+          set: { value, updatedAt: now }
+        });
+    } catch (error) {
+      console.error('Error setting session:', error);
+    }
+  }
+
+  async deleteSession(id: string): Promise<void> {
+    try {
+      await this.db.delete(schema.systemConfig)
+        .where(eq(schema.systemConfig.key, `session:${id}`));
+    } catch (error) {
+      console.error('Error deleting session:', error);
+    }
+  }
 }

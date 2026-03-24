@@ -320,4 +320,19 @@ export class MemoryStorage implements IStorage {
   async getGeneralPassword(): Promise<string | undefined> {
     return undefined;
   }
+
+  // Session methods for persistent admin login
+  private sessions: Map<string, any> = new Map();
+
+  async getSession(id: string): Promise<any | undefined> {
+    return this.sessions.get(id);
+  }
+
+  async setSession(id: string, data: any): Promise<void> {
+    this.sessions.set(id, data);
+  }
+
+  async deleteSession(id: string): Promise<void> {
+    this.sessions.delete(id);
+  }
 }

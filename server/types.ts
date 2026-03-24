@@ -83,4 +83,9 @@ export interface IStorage {
   // Auth methods
   getAuthMode(): Promise<"user_tokens" | "general_password" | "no_auth">;
   getGeneralPassword(): Promise<string | undefined>;
+  
+  // Session methods for persistent admin login
+  getSession(id: string): Promise<any | undefined>;
+  setSession(id: string, data: any): Promise<void>;
+  deleteSession(id: string): Promise<void>;
 }
