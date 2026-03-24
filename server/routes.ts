@@ -4,7 +4,7 @@ import { WebSocketServer, WebSocket } from "ws";
 import { randomUUID } from "crypto";
 import cors from "cors";
 import session from "express-session";
-import MemoryStoreFactory from "memorystore";
+// import MemoryStoreFactory from "memorystore"; // Removed top-level import to prevent crash on ESM/Vercel
 import { getStorage } from "./storage.js";
 
 import { hashPassword, comparePasswords } from "./auth.js";
@@ -28,14 +28,9 @@ async function getSessionStore(sessionInstance: any) {
   console.log("[SESSION] Initializing session store...");
   try {
     // Try to use memorystore package first for better performance/TTL
-    // Use the already imported MemoryStoreFactory if possible, otherwise dynamic import
-    let Factory = MemoryStoreFactory;
-    
-    if (!Factory || (typeof Factory !== 'function' && !(Factory as any).default)) {
-      console.log("[SESSION] Top-level MemoryStoreFactory invalid, trying dynamic import...");
-      const MemoryStoreFactoryMod = await import("memorystore");
-      Factory = (MemoryStoreFactoryMod as any).default || MemoryStoreFactoryMod;
-    }
+    console.log("[SESSION] Attempting dynamic import of memorystore...");
+    const MemoryStoreFactoryMod = await import("memorystore");
+    const Factory = (MemoryStoreFactoryMod as any).default || MemoryStoreFactoryMod;
 
     if (typeof Factory === 'function') {
       const Store = (Factory as any)(sessionInstance);
@@ -47,7 +42,7 @@ async function getSessionStore(sessionInstance: any) {
       return new Store({ checkPeriod: 86400000 });
     }
   } catch (e: any) {
-    console.warn("[SESSION] MemoryStore package failed:", e.message);
+    console.warn("[SESSION] MemoryStore dynamic import failed:", e.message);
   }
   
   // Failsafe: Use express-session's built-in MemoryStore
