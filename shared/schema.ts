@@ -105,7 +105,11 @@ export interface ApiKey {
   requestCount: number;
 }
 
-export const insertApiKeySchema = createInsertSchema(apiKeys);
+export const insertApiKeySchema = createInsertSchema(apiKeys, {
+  id: z.string().optional(),
+  lastUsed: z.number().optional(),
+  requestCount: z.number().optional(),
+});
 export type InsertApiKey = z.infer<typeof insertApiKeySchema>;
 
 // Model schema
@@ -118,7 +122,9 @@ export interface Model {
   tokenLimit?: number | null;
 }
 
-export const insertModelSchema = createInsertSchema(models);
+export const insertModelSchema = createInsertSchema(models, {
+  id: z.string().optional(),
+});
 export type InsertModel = z.infer<typeof insertModelSchema>;
 
 // User Token schema
@@ -140,7 +146,11 @@ export interface UserToken {
   createdByProviderId?: string;
 }
 
-export const insertUserTokenSchema = createInsertSchema(userTokens).extend({
+export const insertUserTokenSchema = createInsertSchema(userTokens, {
+  id: z.string().optional(),
+  token: z.string().optional(),
+  createdAt: z.number().optional(),
+}).extend({
   keyType: z.enum(["master", "sub"]).default("master"),
 });
 export type InsertUserToken = z.infer<typeof insertUserTokenSchema>;
