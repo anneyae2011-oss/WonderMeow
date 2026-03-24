@@ -1,4 +1,4 @@
-import { drizzle } from 'drizzle-orm/neon-serverless';
+import { drizzle } from 'drizzle-orm/neon-http';
 import { neon, neonConfig } from '@neondatabase/serverless';
 import * as schema from '../shared/schema.js';
 import { IStorage } from './types.js';
