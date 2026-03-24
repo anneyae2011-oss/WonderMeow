@@ -241,18 +241,39 @@ export class PostgresStorage implements IStorage {
   }
 
   async createUserToken(userToken: schema.InsertUserToken): Promise<schema.UserToken> {
-    const id = randomUUID();
-    const token = "sk_" + randomUUID().replace(/-/g, "");
-    const now = Date.now();
-    
-    const [newUserToken] = await this.db.insert(schema.userTokens).values({
-      ...userToken,
-      id,
-      token,
-      createdAt: now,
-      enabled: userToken.enabled !== undefined ? userToken.enabled : true,
-    }).returning();
-    return newUserToken;
+    try {
+      const id = randomUUID();
+      const tokenValue = "sk_" + randomUUID().replace(/-/g, "");
+      const now = Date.now();
+      
+      console.log(`[TOKEN] Generating new token: ${tokenValue.substring(0, 7)}... for ${userToken.name}`);
+
+      // Defensive: explicitly exclude token from userToken spread to prevent overwriting with undefined
+      const { token: _removed, ...insertData } = userToken as any;
+      
+      const [newUserToken] = await this.db.insert(schema.userTokens).values({
+        ...insertData,
+        id,
+        token: tokenValue,
+        createdAt: now,
+        enabled: userToken.enabled !== undefined ? userToken.enabled : true,
+      }).returning();
+
+      if (!newUserToken || !newUserToken.token) {
+        console.error(`[TOKEN] [ERROR] Created token row is missing token property! ID: ${id}`);
+        // Fallback: if returning() failed to provide the token, manually attach it if we have the row
+        if (newUserToken) {
+          newUserToken.token = tokenValue;
+        }
+      } else {
+        console.log(`[TOKEN] [SUCCESS] Token created and returned: ${newUserToken.token.substring(0, 7)}...`);
+      }
+
+      return newUserToken;
+    } catch (error) {
+      console.error(`[TOKEN] [ERROR] Failed to create user token:`, error);
+      throw error;
+    }
   }
 
   async updateUserToken(id: string, userToken: Partial<schema.InsertUserToken>): Promise<schema.UserToken | undefined> {

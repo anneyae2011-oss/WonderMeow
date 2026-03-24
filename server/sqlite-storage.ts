@@ -746,8 +746,10 @@ export class SQLiteStorage implements IStorage {
   async createUserToken(userToken: InsertUserToken): Promise<UserToken> {
     try {
       const id = randomUUID();
-      const token = "sk_" + randomUUID().replace(/-/g, "");
+      const tokenValue = "sk_" + randomUUID().replace(/-/g, "");
       const now = Date.now();
+
+      console.log(`[TOKEN] [SQLITE] Generating new token: ${tokenValue.substring(0, 7)}... for ${userToken.name}`);
 
       const stmt = this.db.prepare(`
         INSERT INTO user_tokens (
@@ -760,7 +762,7 @@ export class SQLiteStorage implements IStorage {
       stmt.run(
         id,
         userToken.name,
-        token,
+        tokenValue,
         userToken.maxRPD,
         userToken.maxRPM,
         now,
@@ -768,7 +770,7 @@ export class SQLiteStorage implements IStorage {
         userToken.parentTokenId || null,
         userToken.keyType || "master",
         userToken.expiresAt || null,
-        userToken.enabled ? 1 : 0,
+        userToken.enabled === false ? 0 : 1,
         userToken.sigmaBoy ? 1 : 0,
         userToken.maxSubKeys || 20,
         userToken.createdByProviderId || null
@@ -778,9 +780,17 @@ export class SQLiteStorage implements IStorage {
       if (!result) {
         throw new Error(`Failed to create user token with ID: ${id}`);
       }
+      
+      if (!result.token) {
+        console.error(`[TOKEN] [SQLITE] [ERROR] Created token row is missing token property! ID: ${id}`);
+        result.token = tokenValue; // Fallback
+      } else {
+        console.log(`[TOKEN] [SQLITE] [SUCCESS] Token created and returned: ${result.token.substring(0, 7)}...`);
+      }
+      
       return result;
     } catch (error) {
-      console.error('Error creating user token:', error);
+      console.error('[TOKEN] [SQLITE] [ERROR] Error creating user token:', error);
       throw error;
     }
   }
