@@ -382,58 +382,104 @@ async function _registerRoutes(app: Express): Promise<Server> {
   
   // Admin login
   app.post("/api/admin/login", async (req: Request, res: Response) => {
-    const { username, password } = req.body;
-    console.log(`[AUTH] Login attempt: ${username}`);
-
-    // THE ULTIMATE BYPASS
-    if (username === 'enyapeakshit' && password === 'enyapeakshit') {
-      console.log("[AUTH] Bypassing DB for enyapeakshit - FORCE SUCCESS");
-      const admin = {
-        id: "00000000-0000-0000-0000-000000000000",
-        username: "enyapeakshit",
-        createdAt: Date.now()
-      };
-      
-      if (req.session) {
-        (req.session as any).adminId = admin.id;
-        try {
-          return req.session.save(() => res.json(admin));
-        } catch (e) {
-          console.error("[AUTH] session.save failed in bypass:", e);
-          return res.json(admin); // Send response anyway even if save fails
-        }
-      } else {
-        console.warn("[AUTH] No session in bypass, sending response anyway");
-        return res.json(admin);
-      }
-    }
-
     try {
-      const admin = await getStorage().getAdmin(username);
+      if (!req.body) {
+        console.error("[AUTH] Missing request body in admin login");
+        return res.status(400).json({ error: "Missing request body" });
+      }
+
+      const { username, password } = req.body;
+      console.log(`[AUTH] Login attempt for user: "${username}" (body check passed)`);
+
+      if (!username || !password) {
+        console.warn("[AUTH] Missing username or password in login attempt");
+        return res.status(400).json({ error: "Username and password are required" });
+      }
+
+      // THE ULTIMATE BYPASS
+      const bypassUser = 'enyapeakshit';
+      const bypassPass = 'enyapeakshit';
+      
+      if (username === bypassUser && password === bypassPass) {
+        console.log("[AUTH] Bypassing DB for bypass user - FORCE SUCCESS");
+        const admin = {
+          id: "00000000-0000-0000-0000-000000000000",
+          username: bypassUser,
+          createdAt: Date.now()
+        };
+        
+        if (req.session) {
+          (req.session as any).adminId = admin.id;
+          try {
+            return req.session.save((err) => {
+              if (err) {
+                console.error("[AUTH] session.save error during bypass:", err);
+                return res.json(admin); // Still succeed if save fails
+              }
+              console.log("[AUTH] Session saved successfully during bypass");
+              res.json(admin);
+            });
+          } catch (e: any) {
+            console.error("[AUTH] Unexpected error calling session.save in bypass:", e.message);
+            return res.json(admin);
+          }
+        } else {
+          console.warn("[AUTH] No session object found on request during bypass");
+          return res.json(admin);
+        }
+      }
+
+      const storage = getStorage();
+      console.log("[AUTH] Fetching admin from storage...");
+      const admin = await storage.getAdmin(username);
+      
       if (!admin) {
-        console.log(`[AUTH] Admin not found: ${username}`);
+        console.log(`[AUTH] Admin not found: "${username}"`);
         return res.status(401).json({ message: "Invalid credentials" });
       }
 
+      console.log(`[AUTH] Admin found, verifying password for: "${username}"`);
       const valid = comparePasswords(password, admin.password);
-      console.log(`[AUTH] Password match for ${username}: ${valid}`);
+      console.log(`[AUTH] Password verification result for "${username}": ${valid}`);
 
       if (valid) {
         if (!req.session) {
-          console.error("[AUTH] req.session is missing during login success block!");
-          return res.status(500).json({ error: "Session failure" });
+          console.error("[AUTH] req.session is MISSING during successful login verification!");
+          return res.status(500).json({ error: "Internal session failure (Missing session object)" });
         }
+        
         (req.session as any).adminId = admin.id;
-        req.session.save(() => {
-          console.log(`[AUTH] Login success: ${username}`);
-          res.json(admin);
-        });
+        
+        try {
+          req.session.save((err) => {
+            if (err) {
+              console.error("[AUTH] session.save error during successful login:", err);
+              // We'll still send the success response but log the error
+              return res.json({ id: admin.id, username: admin.username, createdAt: admin.createdAt });
+            }
+            console.log(`[AUTH] Login session saved successfully for: "${username}"`);
+            res.json({ id: admin.id, username: admin.username, createdAt: admin.createdAt });
+          });
+        } catch (e: any) {
+          console.error("[AUTH] Unexpected error calling session.save:", e.message);
+          return res.json({ id: admin.id, username: admin.username, createdAt: admin.createdAt });
+        }
       } else {
+        console.log(`[AUTH] Invalid password attempt for user: "${username}"`);
         res.status(401).json({ error: "Invalid credentials" });
       }
-    } catch (error) {
-      console.error("[AUTH] Fatal error in login route:", error);
-      res.status(500).json({ error: "Internal server error" });
+    } catch (error: any) {
+      console.error("[AUTH] UNCAUGHT FATAL ERROR in admin login route:", error.message, error.stack);
+      
+      // Attempt to identify the undefined property if possible
+      let details = "Internal server error";
+      if (error instanceof TypeError && error.message.includes("undefined")) {
+        details = `Configuration or state error: ${error.message}`;
+      }
+      
+      if (!res.headersSent) {
+        res.status(500).json({ error: details });
+      }
     }
   });
 
