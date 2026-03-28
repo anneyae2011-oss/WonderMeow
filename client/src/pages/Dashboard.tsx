@@ -180,11 +180,11 @@ export default function Dashboard() {
       <div
         className="fixed inset-0 pointer-events-none"
         style={{
-          backgroundImage: 'url(/assets/wondermeow_bg.jpg)',
+          backgroundImage: 'url(/assets/wondermeow_home_bg.jpg)',
           backgroundSize: 'cover',
           backgroundPosition: 'center',
           backgroundRepeat: 'no-repeat',
-          opacity: 0.12,
+          opacity: 0.35,
         }}
       />
 
